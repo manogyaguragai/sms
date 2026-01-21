@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendAdminReminderEmail } from '@/lib/resend';
+import { sendAdminReminderSMS } from '@/lib/notification';
 import { differenceInDays, startOfDay } from 'date-fns';
 
 export const runtime = 'edge';
@@ -69,9 +70,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Send a single admin email with all subscribers needing reminders
+    // Send a single admin email and SMS with all subscribers needing reminders
     if (subscribersNeedingReminder.length > 0) {
-      const result = await sendAdminReminderEmail({
+      const emailResult = await sendAdminReminderEmail({
+        subscribers: subscribersNeedingReminder,
+      });
+
+      const smsResult = await sendAdminReminderSMS({
         subscribers: subscribersNeedingReminder,
       });
 
@@ -79,8 +84,10 @@ export async function GET(request: NextRequest) {
         message: 'Reminder check complete',
         totalSubscribers: subscribers.length,
         subscribersNeedingReminder: subscribersNeedingReminder.length,
-        emailSent: result.success,
-        error: result.error ? String(result.error) : undefined,
+        emailSent: emailResult.success,
+        smsSent: smsResult.success,
+        emailError: emailResult.error ? String(emailResult.error) : undefined,
+        smsError: smsResult.error ? String(smsResult.error) : undefined,
         subscribers: subscribersNeedingReminder.map(s => s.name),
       });
     }
@@ -98,3 +105,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+

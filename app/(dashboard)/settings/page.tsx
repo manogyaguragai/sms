@@ -9,10 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Settings, User, Mail, Lock, Loader2, LogOut, Check, X } from 'lucide-react';
+import { Settings, User, Mail, Lock, Loader2, LogOut, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { testCronJobAction } from '@/app/actions/cron';
 import { sendTestEmailAction } from '@/app/actions/email';
+import { sendTestSMSAction } from '@/app/actions/sms';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -26,6 +27,8 @@ export default function SettingsPage() {
   const [cronResult, setCronResult] = useState<{ success: boolean; message: string } | null>(null);
   const [testEmail, setTestEmail] = useState('');
   const [sendingTestEmail, setSendingTestEmail] = useState(false);
+  const [testPhone, setTestPhone] = useState('+977');
+  const [sendingTestSMS, setSendingTestSMS] = useState(false);
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,6 +118,28 @@ export default function SettingsPage() {
       toast.error('Failed to send test email');
     } finally {
       setSendingTestEmail(false);
+    }
+  };
+
+  const handleSendTestSMS = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testPhone || testPhone === '+977') {
+      toast.error('Please enter a valid phone number');
+      return;
+    }
+
+    setSendingTestSMS(true);
+    try {
+      const result = await sendTestSMSAction(testPhone);
+      if (result.success) {
+        toast.success('Test SMS sent successfully');
+      } else {
+        toast.error((result as { error?: string }).error || 'Failed to send test SMS');
+      }
+    } catch (error) {
+      toast.error('Failed to send test SMS');
+    } finally {
+      setSendingTestSMS(false);
     }
   };
 
@@ -301,6 +326,47 @@ export default function SettingsPage() {
                   )}
                 </div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* SMS Configuration */}
+        <Card className="bg-white border-gray-200 shadow-sm lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-gray-900 flex items-center gap-2">
+              <Smartphone className="w-5 h-5 text-blue-600" />
+              SMS Configuration
+            </CardTitle>
+            <CardDescription className="text-gray-500">
+              Configure and test SMS notifications via NotificationAPI
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              <h3 className="font-medium text-gray-900">Send Test SMS</h3>
+              <p className="text-sm text-gray-500">
+                Send a test SMS to verify your SMS provider configuration. Use international format: +[country code][number]
+              </p>
+              <form onSubmit={handleSendTestSMS} className="flex gap-2">
+                <Input
+                  type="tel"
+                  placeholder="+9779860560444"
+                  value={testPhone}
+                  onChange={(e) => setTestPhone(e.target.value)}
+                  className="flex-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-blue-600 focus:ring-blue-600"
+                />
+                <Button
+                  type="submit"
+                  disabled={sendingTestSMS}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {sendingTestSMS ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    'Send SMS'
+                  )}
+                </Button>
+              </form>
             </div>
           </CardContent>
         </Card>

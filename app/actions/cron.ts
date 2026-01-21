@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendAdminReminderEmail } from "@/lib/resend";
+import { sendAdminReminderSMS } from "@/lib/notification";
 import { differenceInDays, startOfDay } from "date-fns";
 
 export async function testCronJobAction() {
@@ -16,7 +17,7 @@ export async function testCronJobAction() {
 
     if (error) throw new Error(error.message);
     if (!subscribers || subscribers.length === 0) {
-      return { success: true, message: 'No active subscribers found', emailsSent: 0 };
+      return { success: true, message: 'No active subscribers found', emailsSent: 0, smsSent: false };
     }
 
     // Normalize to start of day for accurate day comparison
@@ -45,7 +46,8 @@ export async function testCronJobAction() {
       return { 
         success: true, 
         message: 'Cron job executed successfully. No subscribers due for reminder today.', 
-        emailsSent: 0 
+        emailsSent: 0,
+        smsSent: false,
       };
     }
 
@@ -54,18 +56,25 @@ export async function testCronJobAction() {
       subscribers: subscribersNeedingReminder,
     });
 
+    // Also send SMS notification to admin
+    const smsResult = await sendAdminReminderSMS({
+      subscribers: subscribersNeedingReminder,
+    });
+
     if (!emailResult.success) {
       return { 
         success: false, 
         message: `Failed to send admin notification: ${emailResult.error}`,
-        emailsSent: 0 
+        emailsSent: 0,
+        smsSent: smsResult.success,
       };
     }
 
     return { 
       success: true, 
       message: `Cron job executed successfully.`, 
-      emailsSent: subscribersNeedingReminder.length 
+      emailsSent: subscribersNeedingReminder.length,
+      smsSent: smsResult.success,
     };
 
   } catch (error: any) {
@@ -73,3 +82,4 @@ export async function testCronJobAction() {
     return { success: false, message: error.message || 'Internal server error' };
   }
 }
+
