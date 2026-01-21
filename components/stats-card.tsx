@@ -1,6 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { LucideIcon } from 'lucide-react';
+import Link from 'next/link';
 
 interface StatsCardProps {
   title: string;
@@ -12,6 +13,7 @@ interface StatsCardProps {
     positive: boolean;
   };
   className?: string;
+  href?: string;
 }
 
 export function StatsCard({
@@ -21,10 +23,12 @@ export function StatsCard({
   icon: Icon,
   trend,
   className,
+  href,
 }: StatsCardProps) {
-  return (
+  const cardContent = (
     <Card className={cn(
       'bg-white border-gray-200 shadow-sm relative overflow-hidden',
+      href && 'cursor-pointer hover:shadow-md hover:border-blue-300 transition-all',
       className
     )}>
       <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50/50 rounded-full -translate-y-1/2 translate-x-1/2" />
@@ -54,4 +58,10 @@ export function StatsCard({
       </CardContent>
     </Card>
   );
+
+  if (href) {
+    return <Link href={href}>{cardContent}</Link>;
+  }
+
+  return cardContent;
 }

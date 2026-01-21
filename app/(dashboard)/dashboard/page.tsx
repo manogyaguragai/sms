@@ -29,12 +29,20 @@ async function getDashboardData() {
     .order('subscription_end_date', { ascending: true })
     .limit(10);
 
-  // Get recent payments with subscriber info
+  // Get all payments for total revenue calculation
+  const { data: allPayments } = await supabase
+    .from('payments')
+    .select('amount_paid');
+
+  // Get recent payments with subscriber info for chart
   const { data: recentPayments } = await supabase
     .from('payments')
     .select('*, subscribers(full_name, email)')
     .order('payment_date', { ascending: false })
     .limit(10);
+
+  // Calculate total revenue
+  const totalRevenue = (allPayments || []).reduce((sum, p) => sum + Number(p.amount_paid), 0);
 
   // Calculate MRR and plan distribution
   let mrr = 0;
@@ -72,11 +80,12 @@ async function getDashboardData() {
     expiringSoon: (expiringSoon || []) as Subscriber[],
     recentPayments: (recentPayments || []) as PaymentWithSubscriber[],
     chartData,
+    totalRevenue,
   };
 }
 
 export default async function DashboardPage() {
-  const { mrr, totalSubscribers, expiringSoon, recentPayments, chartData } = await getDashboardData();
+  const { mrr, totalSubscribers, expiringSoon, recentPayments, chartData, totalRevenue } = await getDashboardData();
 
   return (
     <div className="p-6 lg:p-8 space-y-8">
@@ -95,23 +104,26 @@ export default async function DashboardPage() {
           value={`Rs. ${mrr.toFixed(2)}`}
           subtitle="Based on active subscriptions"
           icon={DollarSign}
+          href="/subscribers"
         />
         <StatsCard
           title="Active Subscribers"
           value={totalSubscribers}
           subtitle="Currently active"
           icon={Users}
+          href="/subscribers"
         />
         <StatsCard
           title="Expiring Soon"
           value={expiringSoon.length}
           subtitle="Within next 10 days"
           icon={AlertTriangle}
+          href="/subscribers"
         />
         <StatsCard
-          title="Recent Payments"
-          value={recentPayments.length}
-          subtitle="Last 10 transactions"
+          title="Total Revenue"
+          value={`Rs. ${totalRevenue.toFixed(2)}`}
+          subtitle="All-time collections"
           icon={Receipt}
         />
       </div>
@@ -183,61 +195,54 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Recent Payments */}
+        {/* Total Revenue Summary */}
         <Card className="bg-white border-gray-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
               <Receipt className="w-5 h-5 text-green-500" />
-              Recent Payments
+              Revenue Summary
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {recentPayments.length === 0 ? (
-              <p className="text-gray-500 text-sm py-4 text-center">
-                No payments recorded yet
-              </p>
-            ) : (
-              recentPayments.map((payment) => (
-                <div
-                  key={payment.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-gray-50"
-                >
-                  <div className="flex items-center gap-3">
-                    <Avatar className="w-9 h-9 bg-green-500">
-                      <AvatarFallback className="bg-transparent text-white text-sm">
-                        {payment.subscribers?.full_name
-                          ?.split(' ')
-                          .map((n) => n[0])
-                          .join('')
-                          .slice(0, 2) || '??'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        {payment.subscribers?.full_name || 'Unknown'}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {format(new Date(payment.payment_date), 'MMM d, yyyy')}
-                      </p>
+          <CardContent className="space-y-4">
+            <div className="p-4 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200">
+              <p className="text-sm text-green-600 font-medium">Total Revenue Collected</p>
+              <p className="text-3xl font-bold text-green-700 mt-1">Rs. {totalRevenue.toFixed(2)}</p>
+              <p className="text-xs text-green-600 mt-2">From all {recentPayments.length > 0 ? 'payments' : 'time'}</p>
+            </div>
+
+            {recentPayments.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-700">Latest Payments</p>
+                {recentPayments.slice(0, 5).map((payment) => (
+                  <div
+                    key={payment.id}
+                    className="flex items-center justify-between p-2 rounded-lg bg-gray-50"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Avatar className="w-7 h-7 bg-green-500">
+                        <AvatarFallback className="bg-transparent text-white text-xs">
+                          {payment.subscribers?.full_name
+                            ?.split(' ')
+                            .map((n) => n[0])
+                            .join('')
+                            .slice(0, 2) || '??'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {payment.subscribers?.full_name || 'Unknown'}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {format(new Date(payment.payment_date), 'MMM d')}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
                     <p className="text-sm font-semibold text-green-600">
                       +Rs. {Number(payment.amount_paid).toFixed(2)}
                     </p>
-                    {payment.proof_url && (
-                      <a
-                        href={payment.proof_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-blue-600 hover:text-blue-700"
-                      >
-                        View proof
-                      </a>
-                    )}
                   </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>

@@ -52,7 +52,7 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
 
         const { error } = await supabase.from('subscribers').insert({
           full_name: formData.full_name,
-          email: formData.email,
+          email: formData.email || null,
           phone: formData.phone || null,
           frequency: formData.frequency,
           monthly_rate: formData.monthly_rate,
@@ -69,7 +69,7 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
           .from('subscribers')
           .update({
             full_name: formData.full_name,
-            email: formData.email,
+            email: formData.email || null,
             phone: formData.phone || null,
             frequency: formData.frequency,
             monthly_rate: formData.monthly_rate,
@@ -129,7 +129,7 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
             {/* Email */}
             <div className="space-y-2">
               <Label htmlFor="email" className="text-gray-700">
-                Email *
+                Email
               </Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -141,7 +141,6 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, email: e.target.value }))
                   }
-                  required
                   className="pl-10 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
