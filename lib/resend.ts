@@ -1,0 +1,131 @@
+import { Resend } from 'resend';
+
+export const resend = new Resend(process.env.RESEND_API_KEY);
+
+// Admin email for notifications - defaults to Resend test email
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'delivered@resend.dev';
+
+interface SubscriberReminder {
+  name: string;
+  email: string;
+  daysUntilExpiry: number;
+  subscriptionEndDate: string;
+  monthlyRate: number;
+}
+
+interface AdminReminderEmailProps {
+  subscribers: SubscriberReminder[];
+}
+
+export async function sendAdminReminderEmail({ subscribers }: AdminReminderEmailProps) {
+  if (subscribers.length === 0) {
+    return { success: true, message: 'No subscribers to notify about' };
+  }
+
+  const subscriberRows = subscribers.map(sub => `
+    <tr style="border-bottom: 1px solid #e5e7eb;">
+      <td style="padding: 12px; text-align: left;">${sub.name}</td>
+      <td style="padding: 12px; text-align: left;">${sub.email}</td>
+      <td style="padding: 12px; text-align: center;">${sub.daysUntilExpiry} day${sub.daysUntilExpiry === 1 ? '' : 's'}</td>
+      <td style="padding: 12px; text-align: left;">${new Date(sub.subscriptionEndDate).toLocaleDateString('en-US', {
+        weekday: 'short',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      })}</td>
+      <td style="padding: 12px; text-align: right;">NRS ${sub.monthlyRate.toLocaleString()}</td>
+    </tr>
+  `).join('');
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'SubTrack <notifications@resend.dev>',
+      to: [ADMIN_EMAIL],
+      subject: `⚠️ Subscription Expiry Alert: ${subscribers.length} subscriber${subscribers.length === 1 ? '' : 's'} expiring soon`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); padding: 20px; border-radius: 10px 10px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">📋 SubTrack Admin Alert</h1>
+          </div>
+          
+          <div style="background: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; border-top: none;">
+            <h2 style="color: #1f2937; margin-top: 0;">Subscriptions Expiring Soon</h2>
+            <p style="color: #4b5563;">
+              The following <strong>${subscribers.length}</strong> subscriber${subscribers.length === 1 ? ' has a' : 's have'} subscription${subscribers.length === 1 ? '' : 's'} expiring soon and may need follow-up:
+            </p>
+            
+            <table style="width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; margin-top: 16px;">
+              <thead>
+                <tr style="background: #f3f4f6;">
+                  <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Name</th>
+                  <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Email</th>
+                  <th style="padding: 12px; text-align: center; font-weight: 600; color: #374151;">Days Left</th>
+                  <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Expiry Date</th>
+                  <th style="padding: 12px; text-align: right; font-weight: 600; color: #374151;">Monthly Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${subscriberRows}
+              </tbody>
+            </table>
+            
+            <div style="margin-top: 20px; padding: 16px; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
+              <p style="margin: 0; color: #92400e; font-size: 14px;">
+                <strong>💡 Tip:</strong> Consider reaching out to these subscribers to remind them about renewal.
+              </p>
+            </div>
+          </div>
+          
+          <div style="padding: 16px; background: #f3f4f6; border-radius: 0 0 10px 10px; border: 1px solid #e5e7eb; border-top: none;">
+            <p style="color: #6b7280; font-size: 12px; margin: 0; text-align: center;">
+              This is an automated notification from SubTrack Admin System • ${new Date().toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </p>
+          </div>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error('Error sending admin reminder email:', error);
+      return { success: false, error };
+    }
+
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error sending admin reminder email:', error);
+    return { success: false, error };
+  }
+}
+
+export async function sendTestEmail(to: string) {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'SubTrack <notifications@resend.dev>',
+      to: [to],
+      subject: 'Test Email from SubTrack',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Test Email</h2>
+          <p>This is a test email from your SubTrack Admin System.</p>
+          <p>If you are receiving this, your email configuration is working correctly.</p>
+          <p style="color: #666; font-size: 12px; margin-top: 20px;">Sent via Resend</p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error('Error sending test email:', error);
+      return { success: false, error };
+    }
+
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error sending test email:', error);
+    return { success: false, error };
+  }
+}
