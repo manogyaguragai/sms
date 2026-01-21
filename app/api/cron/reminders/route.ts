@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { sendReminderEmail } from '@/lib/resend';
+import { sendAdminReminderEmail } from '@/lib/resend';
 import { differenceInDays, startOfDay } from 'date-fns';
 
 export const runtime = 'edge';
+
+interface SubscriberReminder {
+  name: string;
+  email: string;
+  daysUntilExpiry: number;
+  subscriptionEndDate: string;
+  monthlyRate: number;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -37,47 +45,50 @@ export async function GET(request: NextRequest) {
     if (!subscribers || subscribers.length === 0) {
       return NextResponse.json({
         message: 'No active subscribers found',
-        emailsSent: 0,
+        subscribersNeedingReminder: 0,
       });
     }
 
     const today = new Date();
-    const emailResults: Array<{ email: string; success: boolean; error?: string }> = [];
+    const subscribersNeedingReminder: SubscriberReminder[] = [];
 
     // Check each subscriber for reminder eligibility
     for (const subscriber of subscribers) {
       const endDate = new Date(subscriber.subscription_end_date);
       const daysUntilExpiry = differenceInDays(startOfDay(endDate), startOfDay(today));
 
-      // Send reminder if days until expiry matches the subscriber's reminder setting
+      // Add to reminder list if days until expiry matches the subscriber's reminder setting
       if (daysUntilExpiry === subscriber.reminder_days_before) {
-        const result = await sendReminderEmail({
-          to: subscriber.email,
-          subscriberName: subscriber.full_name,
+        subscribersNeedingReminder.push({
+          name: subscriber.full_name,
+          email: subscriber.email,
           daysUntilExpiry,
           subscriptionEndDate: subscriber.subscription_end_date,
+          monthlyRate: subscriber.monthly_rate,
         });
-
-        emailResults.push({
-          email: subscriber.email,
-          success: result.success,
-          error: result.error ? String(result.error) : undefined,
-        });
-
-        // Small delay to avoid rate limiting
-        await new Promise((resolve) => setTimeout(resolve, 100));
       }
     }
 
-    const successCount = emailResults.filter((r) => r.success).length;
-    const failedCount = emailResults.filter((r) => !r.success).length;
+    // Send a single admin email with all subscribers needing reminders
+    if (subscribersNeedingReminder.length > 0) {
+      const result = await sendAdminReminderEmail({
+        subscribers: subscribersNeedingReminder,
+      });
+
+      return NextResponse.json({
+        message: 'Reminder check complete',
+        totalSubscribers: subscribers.length,
+        subscribersNeedingReminder: subscribersNeedingReminder.length,
+        emailSent: result.success,
+        error: result.error ? String(result.error) : undefined,
+        subscribers: subscribersNeedingReminder.map(s => s.name),
+      });
+    }
 
     return NextResponse.json({
-      message: `Reminder check complete`,
+      message: 'Reminder check complete - no subscribers need reminders today',
       totalSubscribers: subscribers.length,
-      emailsSent: successCount,
-      emailsFailed: failedCount,
-      results: emailResults,
+      subscribersNeedingReminder: 0,
     });
   } catch (error) {
     console.error('Cron job error:', error);
