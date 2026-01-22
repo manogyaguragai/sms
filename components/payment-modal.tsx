@@ -59,11 +59,12 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
     return format(now, "yyyy-MM-dd'T'HH:mm");
   });
 
-  // Month/Year picker state
+  // Month/Year picker state (using Nepali year - Bikram Sambat)
   const currentDate = new Date();
-  const [pickerYear, setPickerYear] = useState(currentDate.getFullYear());
+  const currentNepaliYear = currentDate.getFullYear() + 57; // Convert to BS
+  const [pickerYear, setPickerYear] = useState(currentNepaliYear);
   const [selectedMonths, setSelectedMonths] = useState<MonthSelection[]>([
-    { month: currentDate.getMonth(), year: currentDate.getFullYear() }
+    { month: currentDate.getMonth(), year: currentNepaliYear }
   ]);
 
   // Calculate amount based on selected months
@@ -79,6 +80,11 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
     'Baisakh', 'Jeth', 'Ashadh', 'Shrawan', 'Bhadra', 'Ashwin',
     'Kartik', 'Mangsir', 'Poush', 'Magh', 'Falgun', 'Chaitra'
   ];
+
+  // Convert Gregorian year to Nepali Bikram Sambat (BS) year
+  // BS year is approximately 56-57 years ahead of AD
+  const toNepaliYear = (gregorianYear: number) => gregorianYear + 57;
+  const toGregorianYear = (nepaliYear: number) => nepaliYear - 57;
 
   const toggleMonth = (monthIndex: number) => {
     const selection = { month: monthIndex, year: pickerYear };
@@ -110,7 +116,9 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
       return a.month - b.month;
     });
     if (sorted.length === 0) return null;
-    return startOfMonth(new Date(sorted[0].year, sorted[0].month, 1));
+    // Convert Nepali year back to Gregorian for database storage
+    const gregorianYear = toGregorianYear(sorted[0].year);
+    return startOfMonth(new Date(gregorianYear, sorted[0].month, 1));
   };
 
   const getSelectedPeriodsLabel = () => {
@@ -246,11 +254,14 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
       setNotes('');
       setFile(null);
       setPreview(null);
-      setSelectedMonths([{ month: currentDate.getMonth(), year: currentDate.getFullYear() }]);
-      setPickerYear(currentDate.getFullYear());
+      // Reset to current Nepali date
+      const now = new Date();
+      const currentBsYear = toNepaliYear(now.getFullYear());
+      setSelectedMonths([{ month: now.getMonth(), year: currentBsYear }]);
+      setPickerYear(currentBsYear);
       setReceiptNumber('');
       setPaymentMode('');
-      setPaymentDate(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
+      setPaymentDate(format(now, "yyyy-MM-dd'T'HH:mm"));
       onClose();
     }
   };
