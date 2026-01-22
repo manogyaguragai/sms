@@ -5,12 +5,13 @@ export interface Subscriber {
   full_name: string;
   email: string;
   phone: string | null;
-  status: 'active' | 'expired' | 'cancelled';
+  status: 'active' | 'expired' | 'cancelled' | 'inactive';
   frequency: 'monthly' | 'annual';
   monthly_rate: number;
   reminder_days_before: number;
   subscription_end_date: string;
   created_at: string;
+  status_notes: string | null;
 }
 
 export interface Payment {
@@ -20,6 +21,7 @@ export interface Payment {
   payment_date: string;
   proof_url: string | null;
   notes: string | null;
+  payment_for_period: string | null;
 }
 
 export interface PaymentWithSubscriber extends Payment {

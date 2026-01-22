@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -14,9 +14,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Upload, FileText, Image as ImageIcon } from 'lucide-react';
+import { Loader2, Upload, FileText, Image as ImageIcon, Calendar, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { toast } from 'sonner';
-import { addMonths, addDays } from 'date-fns';
+import { addMonths, addDays, format, startOfMonth } from 'date-fns';
 import imageCompression from 'browser-image-compression';
 import type { Subscriber } from '@/lib/types';
 
@@ -26,18 +26,79 @@ interface PaymentModalProps {
   onClose: () => void;
 }
 
+interface MonthSelection {
+  month: number;
+  year: number;
+}
+
 export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
   const router = useRouter();
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
-  const [amount, setAmount] = useState(
-    subscriber.frequency === 'monthly'
-      ? subscriber.monthly_rate
-      : subscriber.monthly_rate
-  );
   const [notes, setNotes] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+
+  // Month/Year picker state
+  const currentDate = new Date();
+  const [pickerYear, setPickerYear] = useState(currentDate.getFullYear());
+  const [selectedMonths, setSelectedMonths] = useState<MonthSelection[]>([
+    { month: currentDate.getMonth(), year: currentDate.getFullYear() }
+  ]);
+
+  // Calculate amount based on selected months
+  const amount = useMemo(() => {
+    if (subscriber.frequency === 'annual') {
+      return subscriber.monthly_rate; // Annual rate for annual subscribers
+    }
+    return subscriber.monthly_rate * selectedMonths.length;
+  }, [selectedMonths.length, subscriber.monthly_rate, subscriber.frequency]);
+
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ];
+
+  const toggleMonth = (monthIndex: number) => {
+    const selection = { month: monthIndex, year: pickerYear };
+    const exists = selectedMonths.some(
+      m => m.month === monthIndex && m.year === pickerYear
+    );
+
+    if (exists) {
+      // Don't remove if it's the only selection
+      if (selectedMonths.length === 1) return;
+      setSelectedMonths(selectedMonths.filter(
+        m => !(m.month === monthIndex && m.year === pickerYear)
+      ));
+    } else {
+      setSelectedMonths([...selectedMonths, selection]);
+    }
+  };
+
+  const isMonthSelected = (monthIndex: number) => {
+    return selectedMonths.some(
+      m => m.month === monthIndex && m.year === pickerYear
+    );
+  };
+
+  // Get the earliest selected period for storage
+  const getPaymentForPeriod = () => {
+    const sorted = [...selectedMonths].sort((a, b) => {
+      if (a.year !== b.year) return a.year - b.year;
+      return a.month - b.month;
+    });
+    if (sorted.length === 0) return null;
+    return startOfMonth(new Date(sorted[0].year, sorted[0].month, 1));
+  };
+
+  const getSelectedPeriodsLabel = () => {
+    const sorted = [...selectedMonths].sort((a, b) => {
+      if (a.year !== b.year) return a.year - b.year;
+      return a.month - b.month;
+    });
+    return sorted.map(m => `${months[m.month]} ${m.year}`).join(', ');
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -106,35 +167,46 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
         }
       }
 
-      // Create payment record
+      // Get the payment period
+      const paymentForPeriod = getPaymentForPeriod();
+      const periodLabel = getSelectedPeriodsLabel();
+
+      // Create payment record with payment_for_period
       const { error: paymentError } = await supabase.from('payments').insert({
         subscriber_id: subscriber.id,
         amount_paid: amount,
-        notes: notes || null,
+        notes: notes ? `${notes} | Payment for: ${periodLabel}` : `Payment for: ${periodLabel}`,
         proof_url: proofUrl,
+        payment_for_period: paymentForPeriod?.toISOString() || null,
       });
 
       if (paymentError) throw paymentError;
 
       // Update subscriber's subscription_end_date
-      // Add duration based on frequency (use 365 days for annual as per spec)
+      // Add duration based on number of months selected (for monthly) or 365 days (for annual)
       const currentEndDate = new Date(subscriber.subscription_end_date);
-      const newEndDate =
-        subscriber.frequency === 'monthly'
-          ? addMonths(currentEndDate, 1)
-          : addDays(currentEndDate, 365);
+      let newEndDate: Date;
+
+      if (subscriber.frequency === 'monthly') {
+        // Extend by number of months selected
+        newEndDate = addMonths(currentEndDate, selectedMonths.length);
+      } else {
+        // Annual: extend by 365 days
+        newEndDate = addDays(currentEndDate, 365);
+      }
 
       const { error: updateError } = await supabase
         .from('subscribers')
         .update({
           subscription_end_date: newEndDate.toISOString(),
           status: 'active',
+          status_notes: null, // Clear any previous inactive notes
         })
         .eq('id', subscriber.id);
 
       if (updateError) throw updateError;
 
-      toast.success('Payment recorded successfully!');
+      toast.success(`Payment recorded for ${periodLabel}!`);
       onClose();
       router.refresh();
     } catch (error) {
@@ -147,10 +219,11 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
 
   const handleClose = () => {
     if (!loading) {
-      setAmount(subscriber.monthly_rate);
       setNotes('');
       setFile(null);
       setPreview(null);
+      setSelectedMonths([{ month: currentDate.getMonth(), year: currentDate.getFullYear() }]);
+      setPickerYear(currentDate.getFullYear());
       onClose();
     }
   };
@@ -161,13 +234,73 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
         <DialogHeader>
           <DialogTitle className="text-gray-900">Record Payment</DialogTitle>
           <DialogDescription className="text-gray-600">
-            Record a payment for {subscriber.full_name}. The subscription will be extended by{' '}
-            {subscriber.frequency === 'monthly' ? '1 month' : '365 days'}.
+            Record a payment for {subscriber.full_name}. Select the period(s) this payment covers.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Amount */}
+          {/* Payment Period Selector */}
+          <div className="space-y-2">
+            <Label className="text-gray-700 flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              Payment Period(s)
+            </Label>
+            <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+              {/* Year selector */}
+              <div className="flex items-center justify-between mb-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPickerYear(pickerYear - 1)}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <span className="font-semibold text-gray-900">{pickerYear}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPickerYear(pickerYear + 1)}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {/* Month grid */}
+              <div className="grid grid-cols-4 gap-2">
+                {months.map((month, index) => (
+                  <button
+                    key={month}
+                    type="button"
+                    onClick={() => toggleMonth(index)}
+                    className={`px-2 py-2 text-sm rounded-md transition-colors relative ${isMonthSelected(index)
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                      }`}
+                  >
+                    {month}
+                    {isMonthSelected(index) && (
+                      <Check className="w-3 h-3 absolute top-0.5 right-0.5" />
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Selected periods summary */}
+              <div className="mt-3 text-sm text-gray-600">
+                <span className="font-medium">Selected: </span>
+                {getSelectedPeriodsLabel()}
+                {subscriber.frequency === 'monthly' && selectedMonths.length > 1 && (
+                  <span className="text-blue-600 ml-2">({selectedMonths.length} months)</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Amount - Auto-calculated */}
           <div className="space-y-2">
             <Label htmlFor="amount" className="text-gray-700">
               Amount
@@ -177,19 +310,16 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
               <Input
                 id="amount"
                 type="text"
-                inputMode="decimal"
-                pattern="[0-9]*\.?[0-9]*"
-                value={amount}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                    setAmount(parseFloat(value) || 0);
-                  }
-                }}
-                required
-                className="pl-14 bg-white border-gray-300 text-gray-900 focus:border-blue-500 focus:ring-blue-500"
+                value={amount.toFixed(2)}
+                disabled
+                className="pl-14 bg-gray-100 border-gray-300 text-gray-900"
               />
             </div>
+            {subscriber.frequency === 'monthly' && selectedMonths.length > 1 && (
+              <p className="text-xs text-gray-500">
+                {subscriber.monthly_rate} × {selectedMonths.length} months = Rs. {amount.toFixed(2)}
+              </p>
+            )}
           </div>
 
           {/* Notes */}
@@ -297,3 +427,4 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
     </Dialog>
   );
 }
+

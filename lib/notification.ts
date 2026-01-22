@@ -100,3 +100,57 @@ export async function sendTestSMS(phoneNumber: string) {
     return { success: false, error: String(error) };
   }
 }
+
+interface InactiveSubscriberInfo {
+  name: string;
+  email: string;
+  subscriptionEndDate: string;
+  daysOverdue: number;
+}
+
+interface InactiveSubscriberSMSProps {
+  subscribers: InactiveSubscriberInfo[];
+}
+
+export async function sendInactiveSubscriberSMS({ subscribers }: InactiveSubscriberSMSProps) {
+  if (!CLIENT_ID || !CLIENT_SECRET) {
+    console.error('NotificationAPI credentials not configured');
+    return { success: false, error: 'SMS service not configured' };
+  }
+
+  if (!ADMIN_PHONE) {
+    console.error('ADMIN_PHONE not configured');
+    return { success: false, error: 'Admin phone number not configured' };
+  }
+
+  if (subscribers.length === 0) {
+    return { success: true, message: 'No subscribers to notify about' };
+  }
+
+  // Format subscriber info for SMS (keeping it concise for SMS)
+  const subscriberList = subscribers
+    .map(sub => `${sub.name}: ${sub.daysOverdue}d overdue`)
+    .join(', ');
+
+  const message = `🚫 SubTrack Alert: ${subscribers.length} subscriber${subscribers.length === 1 ? '' : 's'} marked INACTIVE due to non-payment. ${subscriberList}. Check email for details.`;
+
+  try {
+    const result = await notificationapi.send({
+      type: 'sms',
+      to: {
+        id: ADMIN_EMAIL,
+        number: ADMIN_PHONE,
+      },
+      sms: {
+        message: message,
+      },
+    });
+
+    console.log('Inactive subscriber SMS sent successfully:', result?.data);
+    return { success: true, data: result?.data };
+  } catch (error) {
+    console.error('Error sending inactive subscriber SMS:', error);
+    return { success: false, error: String(error) };
+  }
+}
+

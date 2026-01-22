@@ -29,7 +29,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { MoreHorizontal, Eye, Trash2, Search, Loader2 } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { MoreHorizontal, Eye, Trash2, Search, Loader2, AlertCircle } from 'lucide-react';
 import { format, differenceInDays, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
 import type { Subscriber } from '@/lib/types';
@@ -81,6 +87,8 @@ export function SubscriberTable({ initialSubscribers }: SubscriberTableProps) {
         return <Badge className="bg-green-50 text-green-600 border-green-200">Active</Badge>;
       case 'expired':
         return <Badge className="bg-red-50 text-red-600 border-red-200">Expired</Badge>;
+      case 'inactive':
+        return <Badge className="bg-amber-50 text-amber-600 border-amber-200">Inactive</Badge>;
       case 'cancelled':
         return <Badge className="bg-gray-100 text-gray-500 border-gray-200">Cancelled</Badge>;
       default:
@@ -140,7 +148,21 @@ export function SubscriberTable({ initialSubscribers }: SubscriberTableProps) {
                   onClick={() => router.push(`/subscribers/${subscriber.id}`)}
                 >
                   <TableCell className="font-medium text-gray-900">
-                    {subscriber.full_name}
+                    <div className="flex items-center gap-2">
+                      {subscriber.full_name}
+                      {subscriber.status === 'inactive' && subscriber.status_notes && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <AlertCircle className="w-4 h-4 text-amber-500 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs bg-gray-900 text-white">
+                              <p className="text-sm">{subscriber.status_notes}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-gray-500">{subscriber.email}</TableCell>
                   <TableCell>{getStatusBadge(subscriber.status)}</TableCell>

@@ -392,9 +392,16 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
                         <DollarSign className="w-5 h-5 text-green-600" />
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">
-                          Rs. {Number(payment.amount_paid).toFixed(2)}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-gray-900">
+                            Rs. {Number(payment.amount_paid).toFixed(2)}
+                          </p>
+                          {payment.payment_for_period && (
+                            <Badge variant="outline" className="text-xs border-blue-200 text-blue-600 bg-blue-50">
+                              {format(new Date(payment.payment_for_period), 'MMM yyyy')}
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-sm text-gray-500">
                           {format(new Date(payment.payment_date), 'MMM d, yyyy h:mm a')}
                         </p>
