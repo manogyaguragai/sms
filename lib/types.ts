@@ -22,6 +22,8 @@ export interface Payment {
   proof_url: string | null;
   notes: string | null;
   payment_for_period: string | null;
+  receipt_number: string | null;
+  payment_mode: 'online_transfer' | 'physical_transfer' | null;
 }
 
 export interface PaymentWithSubscriber extends Payment {

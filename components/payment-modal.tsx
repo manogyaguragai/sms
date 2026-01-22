@@ -14,7 +14,20 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Upload, FileText, Image as ImageIcon, Calendar, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { Loader2, Upload, FileText, Image as ImageIcon, Calendar, ChevronLeft, ChevronRight, Check, Receipt, CreditCard, HelpCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { addMonths, addDays, format, startOfMonth } from 'date-fns';
 import imageCompression from 'browser-image-compression';
@@ -38,6 +51,13 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
   const [notes, setNotes] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [receiptNumber, setReceiptNumber] = useState('');
+  const [paymentMode, setPaymentMode] = useState<'online_transfer' | 'physical_transfer' | ''>('');
+  const [paymentDate, setPaymentDate] = useState(() => {
+    const now = new Date();
+    // Format as YYYY-MM-DDTHH:MM for datetime-local input
+    return format(now, "yyyy-MM-dd'T'HH:mm");
+  });
 
   // Month/Year picker state
   const currentDate = new Date();
@@ -54,9 +74,10 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
     return subscriber.monthly_rate * selectedMonths.length;
   }, [selectedMonths.length, subscriber.monthly_rate, subscriber.frequency]);
 
+  // Nepali month names
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    'Baisakh', 'Jeth', 'Ashadh', 'Shrawan', 'Bhadra', 'Ashwin',
+    'Kartik', 'Mangsir', 'Poush', 'Magh', 'Falgun', 'Chaitra'
   ];
 
   const toggleMonth = (monthIndex: number) => {
@@ -178,6 +199,9 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
         notes: notes ? `${notes} | Payment for: ${periodLabel}` : `Payment for: ${periodLabel}`,
         proof_url: proofUrl,
         payment_for_period: paymentForPeriod?.toISOString() || null,
+        receipt_number: receiptNumber || null,
+        payment_mode: paymentMode || null,
+        payment_date: new Date(paymentDate).toISOString(),
       });
 
       if (paymentError) throw paymentError;
@@ -224,21 +248,24 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
       setPreview(null);
       setSelectedMonths([{ month: currentDate.getMonth(), year: currentDate.getFullYear() }]);
       setPickerYear(currentDate.getFullYear());
+      setReceiptNumber('');
+      setPaymentMode('');
+      setPaymentDate(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
       onClose();
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="bg-white border-gray-200 max-w-md">
-        <DialogHeader>
+      <DialogContent className="bg-white border-gray-200 w-[95vw] max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-gray-900">Record Payment</DialogTitle>
           <DialogDescription className="text-gray-600">
             Record a payment for {subscriber.full_name}. Select the period(s) this payment covers.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-4 pr-2">
           {/* Payment Period Selector */}
           <div className="space-y-2">
             <Label className="text-gray-700 flex items-center gap-2">
@@ -322,21 +349,79 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
             )}
           </div>
 
+          {/* Receipt Number */}
+          <div className="space-y-2">
+            <Label htmlFor="receiptNumber" className="text-gray-700 flex items-center gap-2">
+              <Receipt className="w-4 h-4" />
+              Receipt Number (optional)
+            </Label>
+            <Input
+              id="receiptNumber"
+              placeholder="e.g., REC-001234"
+              value={receiptNumber}
+              onChange={(e) => setReceiptNumber(e.target.value)}
+              className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Mode of Payment */}
+          <div className="space-y-2">
+            <Label className="text-gray-700 flex items-center gap-2">
+              <CreditCard className="w-4 h-4" />
+              Mode of Payment
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="font-medium">Online Transfer:</p>
+                    <p className="text-sm">Bank, eSewa, Khalti, FonePay, etc.</p>
+                    <p className="font-medium mt-2">Physical Transfer:</p>
+                    <p className="text-sm">Cash, Card, or Cheque</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </Label>
+            <Select value={paymentMode} onValueChange={(value: 'online_transfer' | 'physical_transfer') => setPaymentMode(value)}>
+              <SelectTrigger className="bg-white border-gray-300 text-gray-900">
+                <SelectValue placeholder="Select payment mode" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="online_transfer">Online Transfer</SelectItem>
+                <SelectItem value="physical_transfer">Physical Transfer</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Payment Date */}
+          <div className="space-y-2">
+            <Label htmlFor="paymentDate" className="text-gray-700 flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              Payment Date
+            </Label>
+            <Input
+              id="paymentDate"
+              type="datetime-local"
+              value={paymentDate}
+              onChange={(e) => setPaymentDate(e.target.value)}
+              className="bg-white border-gray-300 text-gray-900 focus:border-blue-500 focus:ring-blue-500"
+            />
+          </div>
+
           {/* Notes */}
           <div className="space-y-2">
-            <Label htmlFor="notes" className="text-gray-700">
+            <Label htmlFor="notes" className="text-gray-700 flex items-center gap-2">
+              <FileText className="w-4 h-4" />
               Notes (optional)
             </Label>
-            <div className="relative">
-              <FileText className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-              <Input
-                id="notes"
-                placeholder="Payment via bank transfer..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="pl-10 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
+            <Input
+              id="notes"
+              placeholder="Additional notes..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
+            />
           </div>
 
           {/* Proof Upload */}
@@ -394,7 +479,7 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
             </div>
           </div>
 
-          <DialogFooter className="pt-4">
+          <DialogFooter className="pt-4 flex-shrink-0 border-t border-gray-100 bg-white -mx-2 px-2 mt-4">
             <Button
               type="button"
               variant="ghost"
