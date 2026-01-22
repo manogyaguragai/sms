@@ -190,8 +190,15 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
             </AvatarFallback>
           </Avatar>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{subscriber.full_name}</h1>
-            <p className="text-gray-500">{subscriber.email || 'No email'}</p>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {subscriber.full_name}
+              {subscriber.referred_by && (
+                <span className="text-base font-normal text-gray-500 ml-2">
+                  (Referred by {subscriber.referred_by})
+                </span>
+              )}
+            </h1>
+            <p className="text-gray-500">{subscriber.phone || 'No phone'}</p>
             <div className="flex items-center gap-2 mt-2">
               {getStatusBadge(subscriber.status)}
               <Badge variant="outline" className="border-gray-200 text-gray-600 capitalize">

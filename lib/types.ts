@@ -12,6 +12,7 @@ export interface Subscriber {
   subscription_end_date: string;
   created_at: string;
   status_notes: string | null;
+  referred_by: string | null;
 }
 
 export interface Payment {
@@ -41,6 +42,7 @@ export interface SubscriberFormData {
   frequency: 'monthly' | 'annual';
   monthly_rate: number;
   reminder_days_before: number;
+  referred_by?: string;
 }
 
 export interface PaymentFormData {
