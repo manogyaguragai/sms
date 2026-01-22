@@ -3,7 +3,7 @@
 export interface Subscriber {
   id: string;
   full_name: string;
-  email: string;
+  email: string | null;
   phone: string | null;
   status: 'active' | 'expired' | 'cancelled' | 'inactive';
   frequency: 'monthly' | 'annual';
@@ -29,14 +29,14 @@ export interface Payment {
 export interface PaymentWithSubscriber extends Payment {
   subscribers: {
     full_name: string;
-    email: string;
+    email: string | null;
   };
 }
 
 // Form input types
 export interface SubscriberFormData {
   full_name: string;
-  email: string;
+  email?: string;
   phone?: string;
   frequency: 'monthly' | 'annual';
   monthly_rate: number;

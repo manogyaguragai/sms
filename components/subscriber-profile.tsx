@@ -191,7 +191,7 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
           </Avatar>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{subscriber.full_name}</h1>
-            <p className="text-gray-500">{subscriber.email}</p>
+            <p className="text-gray-500">{subscriber.email || 'No email'}</p>
             <div className="flex items-center gap-2 mt-2">
               {getStatusBadge(subscriber.status)}
               <Badge variant="outline" className="border-gray-200 text-gray-600 capitalize">
@@ -318,15 +318,22 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
             <CardTitle className="text-gray-900 text-lg">Contact Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Mail className="w-4 h-4 text-gray-400" />
-              <a
-                href={`mailto:${subscriber.email}`}
-                className="text-blue-600 hover:text-blue-700 transition-colors"
-              >
-                {subscriber.email}
-              </a>
-            </div>
+            {subscriber.email ? (
+              <div className="flex items-center gap-3">
+                <Mail className="w-4 h-4 text-gray-400" />
+                <a
+                  href={`mailto:${subscriber.email}`}
+                  className="text-blue-600 hover:text-blue-700 transition-colors"
+                >
+                  {subscriber.email}
+                </a>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <Mail className="w-4 h-4 text-gray-400" />
+                <span className="text-gray-400">No email provided</span>
+              </div>
+            )}
             {subscriber.phone && (
               <div className="flex items-center gap-3">
                 <Phone className="w-4 h-4 text-gray-400" />

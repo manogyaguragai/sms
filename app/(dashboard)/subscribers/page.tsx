@@ -1,28 +1,35 @@
-import { createClient } from '@/lib/supabase/server';
+import { getSubscribersPaginated } from '@/app/actions/subscribers';
 import { SubscriberTable } from '@/components/subscriber-table';
 import { Button } from '@/components/ui/button';
 import { UserPlus, Users } from 'lucide-react';
 import Link from 'next/link';
-import type { Subscriber } from '@/lib/types';
 
-async function getSubscribers() {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from('subscribers')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching subscribers:', error);
-    return [];
-  }
-
-  return data as Subscriber[];
+interface PageProps {
+  searchParams: Promise<{
+    page?: string;
+    pageSize?: string;
+    search?: string;
+    status?: string;
+    frequency?: string;
+  }>;
 }
 
-export default async function SubscribersPage() {
-  const subscribers = await getSubscribers();
+export default async function SubscribersPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+
+  const page = parseInt(params.page || '1', 10);
+  const pageSize = parseInt(params.pageSize || '10', 10);
+  const search = params.search || '';
+  const status = params.status || '';
+  const frequency = params.frequency || '';
+
+  const result = await getSubscribersPaginated({
+    page,
+    pageSize,
+    search,
+    status,
+    frequency,
+  });
 
   return (
     <div className="p-6 lg:p-8 space-y-6">
@@ -34,7 +41,7 @@ export default async function SubscribersPage() {
             Subscribers
           </h1>
           <p className="text-gray-500 mt-1">
-            Manage your {subscribers.length} subscriber{subscribers.length !== 1 ? 's' : ''}
+            Manage your {result.totalCount} subscriber{result.totalCount !== 1 ? 's' : ''}
           </p>
         </div>
         <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white">
@@ -45,8 +52,17 @@ export default async function SubscribersPage() {
         </Button>
       </div>
 
-      {/* Table */}
-      <SubscriberTable initialSubscribers={subscribers} />
+      {/* Table with Pagination */}
+      <SubscriberTable
+        subscribers={result.subscribers}
+        totalCount={result.totalCount}
+        page={result.page}
+        pageSize={result.pageSize}
+        totalPages={result.totalPages}
+        currentSearch={search}
+        currentStatus={status}
+        currentFrequency={frequency}
+      />
     </div>
   );
 }

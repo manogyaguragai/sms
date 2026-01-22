@@ -17,7 +17,7 @@ if (CLIENT_ID && CLIENT_SECRET) {
 
 interface SubscriberReminder {
   name: string;
-  email: string;
+  email: string | null;
   daysUntilExpiry: number;
   subscriptionEndDate: string;
   monthlyRate: number;
@@ -103,7 +103,7 @@ export async function sendTestSMS(phoneNumber: string) {
 
 interface InactiveSubscriberInfo {
   name: string;
-  email: string;
+  email: string | null;
   subscriptionEndDate: string;
   daysOverdue: number;
 }

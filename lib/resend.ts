@@ -7,7 +7,7 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'delivered@resend.dev';
 
 interface SubscriberReminder {
   name: string;
-  email: string;
+  email: string | null;
   daysUntilExpiry: number;
   subscriptionEndDate: string;
   monthlyRate: number;
@@ -25,7 +25,7 @@ export async function sendAdminReminderEmail({ subscribers }: AdminReminderEmail
   const subscriberRows = subscribers.map(sub => `
     <tr style="border-bottom: 1px solid #e5e7eb;">
       <td style="padding: 12px; text-align: left;">${sub.name}</td>
-      <td style="padding: 12px; text-align: left;">${sub.email}</td>
+      <td style="padding: 12px; text-align: left;">${sub.email || 'N/A'}</td>
       <td style="padding: 12px; text-align: center;">${sub.daysUntilExpiry} day${sub.daysUntilExpiry === 1 ? '' : 's'}</td>
       <td style="padding: 12px; text-align: left;">${new Date(sub.subscriptionEndDate).toLocaleDateString('en-US', {
         weekday: 'short',
@@ -132,7 +132,7 @@ export async function sendTestEmail(to: string) {
 
 interface InactiveSubscriberInfo {
   name: string;
-  email: string;
+  email: string | null;
   subscriptionEndDate: string;
   daysOverdue: number;
 }
@@ -149,7 +149,7 @@ export async function sendInactiveSubscriberEmail({ subscribers }: InactiveSubsc
   const subscriberRows = subscribers.map(sub => `
     <tr style="border-bottom: 1px solid #e5e7eb;">
       <td style="padding: 12px; text-align: left;">${sub.name}</td>
-      <td style="padding: 12px; text-align: left;">${sub.email}</td>
+      <td style="padding: 12px; text-align: left;">${sub.email || 'N/A'}</td>
       <td style="padding: 12px; text-align: left;">${new Date(sub.subscriptionEndDate).toLocaleDateString('en-US', {
         weekday: 'short',
         year: 'numeric',
