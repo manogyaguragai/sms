@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { useRole } from '@/lib/hooks/use-role';
+import { deleteSubscriber } from '@/app/actions/subscriber';
 import {
   Table,
   TableBody,
@@ -75,7 +76,8 @@ export function SubscriberTable({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const supabase = createClient();
+  const { hasPermission } = useRole();
+  const canDelete = hasPermission('DELETE_SUBSCRIBER');
 
   // Debounced search
   useEffect(() => {
@@ -106,18 +108,17 @@ export function SubscriberTable({
     setDeleting(true);
 
     try {
-      const { error } = await supabase
-        .from('subscribers')
-        .delete()
-        .eq('id', deleteId);
+      const result = await deleteSubscriber(deleteId);
 
-      if (error) throw error;
+      if (!result.success) {
+        throw new Error(result.message);
+      }
 
-      toast.success('Subscriber deleted successfully');
+      toast.success(result.message);
       router.refresh();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting subscriber:', error);
-      toast.error('Failed to delete subscriber');
+      toast.error(error.message || 'Failed to delete subscriber');
     } finally {
       setDeleting(false);
       setDeleteId(null);
@@ -332,16 +333,18 @@ export function SubscriberTable({
                             View Details
                           </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-red-600 focus:text-red-700 focus:bg-red-50"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteId(subscriber.id);
-                          }}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
+                          {canDelete && (
+                            <DropdownMenuItem
+                              className="text-red-600 focus:text-red-700 focus:bg-red-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteId(subscriber.id);
+                              }}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

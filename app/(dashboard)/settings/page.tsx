@@ -9,16 +9,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { testCronJobAction } from '@/app/actions/cron';
 import { sendTestEmailAction } from '@/app/actions/email';
 import { sendTestSMSAction } from '@/app/actions/sms';
 import { exportData } from '@/app/actions/export';
-import { Settings, User, Mail, Lock, Loader2, LogOut, Smartphone, Download } from 'lucide-react';
+import { useRole, getRoleLabel, getRoleBadgeColor } from '@/lib/hooks/use-role';
+import { Settings, User, Mail, Lock, Loader2, LogOut, Smartphone, Download, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function SettingsPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { role, profile, isLoading: roleLoading, hasPermission } = useRole();
+
   const [loading, setLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -36,6 +40,12 @@ export default function SettingsPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [exporting, setExporting] = useState(false);
+
+  // Permission checks
+  const canTestEmail = hasPermission('TEST_EMAIL');
+  const canTestSMS = hasPermission('TEST_SMS');
+  const canTriggerCron = hasPermission('TRIGGER_CRON');
+  const canExportData = hasPermission('EXPORT_DATA');
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -197,6 +207,18 @@ export default function SettingsPage() {
     }
   };
 
+  if (roleLoading) {
+    return (
+      <div className="p-6 lg:p-8 space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-48" />
+          <Skeleton className="h-48" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 lg:p-8 space-y-6">
       {/* Header */}
@@ -223,6 +245,23 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* User Profile Info */}
+            {profile && (
+              <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                    <Shield className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{profile.full_name || 'User'}</p>
+                    <Badge className={`text-xs ${getRoleBadgeColor(profile.role)}`}>
+                      {getRoleLabel(profile.role)}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
               <div className="flex items-center gap-3">
                 <Mail className="w-5 h-5 text-gray-400" />
@@ -310,215 +349,234 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-gray-200 shadow-sm lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-gray-900 flex items-center gap-2">
-              <Mail className="w-5 h-5 text-blue-600" />
-              Email Configuration
-            </CardTitle>
-            <CardDescription className="text-gray-500">
-              Configure and test email settings
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Email Configuration - Super Admin only */}
+        {(canTestEmail || canTriggerCron) && (
+          <Card className="bg-white border-gray-200 shadow-sm lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-gray-900 flex items-center gap-2">
+                <Mail className="w-5 h-5 text-blue-600" />
+                Email Configuration
+                <Badge className="bg-purple-100 text-purple-700 border-purple-200 text-xs ml-2">
+                  Super Admin Only
+                </Badge>
+              </CardTitle>
+              <CardDescription className="text-gray-500">
+                Configure and test email settings
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {canTestEmail && (
+                  <div className="space-y-4">
+                    <h3 className="font-medium text-gray-900">Send Test Email</h3>
+                    <p className="text-sm text-gray-500">
+                      Send a test email to verify your email provider configuration.
+                    </p>
+                    <form onSubmit={handleSendTestEmail} className="flex gap-2">
+                      <Input
+                        type="email"
+                        placeholder="Enter email address"
+                        value={testEmail}
+                        onChange={(e) => setTestEmail(e.target.value)}
+                        className="flex-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-blue-600 focus:ring-blue-600"
+                      />
+                      <Button
+                        type="submit"
+                        disabled={sendingTestEmail}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        {sendingTestEmail ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          'Send'
+                        )}
+                      </Button>
+                    </form>
+                  </div>
+                )}
+
+                {canTriggerCron && (
+                  <div className="space-y-4">
+                    <h3 className="font-medium text-gray-900">Test Reminder Cron</h3>
+                    <p className="text-sm text-gray-500">
+                      Manually trigger the daily reminder check to see if any emails would be sent today.
+                    </p>
+                    <div className="flex items-start gap-4">
+                      <Button
+                        variant="outline"
+                        onClick={testCronJob}
+                        disabled={testingCron}
+                        className="border-gray-300 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                      >
+                        {testingCron ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          'Trigger Cron Job'
+                        )}
+                      </Button>
+                      {cronResult && (
+                        <div
+                          className={`text-sm p-2 rounded-md ${cronResult.success
+                              ? 'bg-green-50 text-green-700 border border-green-200'
+                              : 'bg-red-50 text-red-700 border border-red-200'
+                            }`}
+                        >
+                          {cronResult.message}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* SMS Configuration - Super Admin only */}
+        {canTestSMS && (
+          <Card className="bg-white border-gray-200 shadow-sm lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-gray-900 flex items-center gap-2">
+                <Smartphone className="w-5 h-5 text-blue-600" />
+                SMS Configuration
+                <Badge className="bg-purple-100 text-purple-700 border-purple-200 text-xs ml-2">
+                  Super Admin Only
+                </Badge>
+              </CardTitle>
+              <CardDescription className="text-gray-500">
+                Configure and test SMS notifications via NotificationAPI
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
               <div className="space-y-4">
-                <h3 className="font-medium text-gray-900">Send Test Email</h3>
+                <h3 className="font-medium text-gray-900">Send Test SMS</h3>
                 <p className="text-sm text-gray-500">
-                  Send a test email to verify your email provider configuration.
+                  Send a test SMS to verify your SMS provider configuration. Use international format: +[country code][number]
                 </p>
-                <form onSubmit={handleSendTestEmail} className="flex gap-2">
+                <form onSubmit={handleSendTestSMS} className="flex gap-2">
                   <Input
-                    type="email"
-                    placeholder="Enter email address"
-                    value={testEmail}
-                    onChange={(e) => setTestEmail(e.target.value)}
+                    type="tel"
+                    placeholder="+9779860560444"
+                    value={testPhone}
+                    onChange={(e) => setTestPhone(e.target.value)}
                     className="flex-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-blue-600 focus:ring-blue-600"
                   />
                   <Button
                     type="submit"
-                    disabled={sendingTestEmail}
+                    disabled={sendingTestSMS}
                     className="bg-blue-600 hover:bg-blue-700 text-white"
                   >
-                    {sendingTestEmail ? (
+                    {sendingTestSMS ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      'Send'
+                      'Send SMS'
                     )}
                   </Button>
                 </form>
               </div>
+            </CardContent>
+          </Card>
+        )}
 
+        {/* Export Data - Super Admin only */}
+        {canExportData && (
+          <Card className="bg-white border-gray-200 shadow-sm lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-gray-900 flex items-center gap-2">
+                <Download className="w-5 h-5 text-blue-600" />
+                Export Data
+                <Badge className="bg-purple-100 text-purple-700 border-purple-200 text-xs ml-2">
+                  Super Admin Only
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
               <div className="space-y-4">
-                <h3 className="font-medium text-gray-900">Test Reminder Cron</h3>
-                <p className="text-sm text-gray-500">
-                  Manually trigger the daily reminder check to see if any emails would be sent today.
-                </p>
-                <div className="flex items-start gap-4">
+                <div className="flex flex-col gap-4">
+                  <div className="space-y-2">
+                    <Label>Data to Export</Label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="exportType"
+                          value="subscribers"
+                          checked={exportType === 'subscribers'}
+                          onChange={(e) => setExportType(e.target.value as 'subscribers')}
+                          className="text-blue-600 focus:ring-blue-600 border-gray-300"
+                        />
+                        Subscribers
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="exportType"
+                          value="payments"
+                          checked={exportType === 'payments'}
+                          onChange={(e) => setExportType(e.target.value as 'payments')}
+                          className="text-blue-600 focus:ring-blue-600 border-gray-300"
+                        />
+                        Payments
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="exportType"
+                          value="both"
+                          checked={exportType === 'both'}
+                          onChange={(e) => setExportType(e.target.value as 'both')}
+                          className="text-blue-600 focus:ring-blue-600 border-gray-300"
+                        />
+                        Both
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="startDate">Start Date</Label>
+                      <Input
+                        id="startDate"
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="bg-gray-50 border-gray-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="endDate">End Date</Label>
+                      <Input
+                        id="endDate"
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="bg-gray-50 border-gray-200"
+                      />
+                    </div>
+                  </div>
+
                   <Button
-                    variant="outline"
-                    onClick={testCronJob}
-                    disabled={testingCron}
-                    className="border-gray-300 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                    onClick={handleExport}
+                    disabled={exporting}
+                    className="w-full md:w-auto self-start bg-blue-600 hover:bg-blue-700 text-white"
                   >
-                    {testingCron ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                    {exporting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Exporting...
+                      </>
                     ) : (
-                      'Trigger Cron Job'
+                      <>
+                        <Download className="w-4 h-4 mr-2" />
+                        Export CSV
+                      </>
                     )}
                   </Button>
-                  {cronResult && (
-                    <div
-                      className={`text-sm p-2 rounded-md ${
-                        cronResult.success
-                          ? 'bg-green-50 text-green-700 border border-green-200'
-                          : 'bg-red-50 text-red-700 border border-red-200'
-                      }`}
-                    >
-                      {cronResult.message}
-                    </div>
-                  )}
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* SMS Configuration */}
-        <Card className="bg-white border-gray-200 shadow-sm lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-gray-900 flex items-center gap-2">
-              <Smartphone className="w-5 h-5 text-blue-600" />
-              SMS Configuration
-            </CardTitle>
-            <CardDescription className="text-gray-500">
-              Configure and test SMS notifications via NotificationAPI
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
-              <h3 className="font-medium text-gray-900">Send Test SMS</h3>
-              <p className="text-sm text-gray-500">
-                Send a test SMS to verify your SMS provider configuration. Use international format: +[country code][number]
-              </p>
-              <form onSubmit={handleSendTestSMS} className="flex gap-2">
-                <Input
-                  type="tel"
-                  placeholder="+9779860560444"
-                  value={testPhone}
-                  onChange={(e) => setTestPhone(e.target.value)}
-                  className="flex-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-blue-600 focus:ring-blue-600"
-                />
-                <Button
-                  type="submit"
-                  disabled={sendingTestSMS}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  {sendingTestSMS ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    'Send SMS'
-                  )}
-                </Button>
-              </form>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Export Data */}
-        <Card className="bg-white border-gray-200 shadow-sm lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-gray-900 flex items-center gap-2">
-              <Download className="w-5 h-5 text-blue-600" />
-              Export Data
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
-              <div className="flex flex-col gap-4">
-                <div className="space-y-2">
-                  <Label>Data to Export</Label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="exportType"
-                        value="subscribers"
-                        checked={exportType === 'subscribers'}
-                        onChange={(e) => setExportType(e.target.value as 'subscribers')}
-                        className="text-blue-600 focus:ring-blue-600 border-gray-300"
-                      />
-                      Subscribers
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="exportType"
-                        value="payments"
-                        checked={exportType === 'payments'}
-                        onChange={(e) => setExportType(e.target.value as 'payments')}
-                        className="text-blue-600 focus:ring-blue-600 border-gray-300"
-                      />
-                      Payments
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="exportType"
-                        value="both"
-                        checked={exportType === 'both'}
-                        onChange={(e) => setExportType(e.target.value as 'both')}
-                        className="text-blue-600 focus:ring-blue-600 border-gray-300"
-                      />
-                      Both
-                    </label>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="startDate">Start Date</Label>
-                    <Input
-                      id="startDate"
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="bg-gray-50 border-gray-200"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="endDate">End Date</Label>
-                    <Input
-                      id="endDate"
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="bg-gray-50 border-gray-200"
-                    />
-                  </div>
-                </div>
-
-                <Button
-                  onClick={handleExport}
-                  disabled={exporting}
-                  className="w-full md:w-auto self-start bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  {exporting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Exporting...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-4 h-4 mr-2" />
-                      Export CSV
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

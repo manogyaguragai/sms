@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { useRole } from '@/lib/hooks/use-role';
+import { deleteSubscriber } from '@/app/actions/subscriber';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -53,7 +54,8 @@ interface SubscriberProfileProps {
 
 export function SubscriberProfile({ subscriber, payments }: SubscriberProfileProps) {
   const router = useRouter();
-  const supabase = createClient();
+  const { hasPermission } = useRole();
+  const canDelete = hasPermission('DELETE_SUBSCRIBER');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -79,18 +81,17 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
   const handleDelete = async () => {
     setDeleting(true);
     try {
-      const { error } = await supabase
-        .from('subscribers')
-        .delete()
-        .eq('id', subscriber.id);
+      const result = await deleteSubscriber(subscriber.id);
 
-      if (error) throw error;
+      if (!result.success) {
+        throw new Error(result.message);
+      }
 
-      toast.success('Subscriber deleted successfully');
+      toast.success(result.message);
       router.push('/subscribers');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting subscriber:', error);
-      toast.error('Failed to delete subscriber');
+      toast.error(error.message || 'Failed to delete subscriber');
     } finally {
       setDeleting(false);
       setShowDeleteDialog(false);
@@ -364,14 +365,16 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
               </p>
             </div>
             <Separator className="bg-gray-200" />
-            <Button
-              variant="ghost"
-              onClick={() => setShowDeleteDialog(true)}
-              className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete Subscriber
-            </Button>
+            {canDelete && (
+              <Button
+                variant="ghost"
+                onClick={() => setShowDeleteDialog(true)}
+                className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Subscriber
+              </Button>
+            )}
           </CardContent>
         </Card>
 
