@@ -416,9 +416,9 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
                           <p className="font-medium text-gray-900">
                             Rs. {Number(payment.amount_paid).toFixed(2)}
                           </p>
-                          {payment.payment_for_period && (
+                          {payment.notes && payment.notes.includes('Payment for:') && (
                             <Badge variant="outline" className="text-xs border-blue-200 text-blue-600 bg-blue-50">
-                              For: {formatNepaliDate(payment.payment_for_period, 'short')}
+                              For: {payment.notes.match(/Payment for:\s*([^|]+)/)?.[1]?.trim() || ''}
                             </Badge>
                           )}
                         </div>
