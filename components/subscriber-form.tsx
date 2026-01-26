@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, User, Mail, Phone, CalendarClock, DollarSign, Bell } from 'lucide-react';
+import { Loader2, User, Mail, Phone, CalendarClock, DollarSign, Bell, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { addMonths, addYears } from 'date-fns';
 import type { Subscriber, SubscriberFormData } from '@/lib/types';
@@ -35,6 +35,7 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
     frequency: subscriber?.frequency || 'monthly',
     monthly_rate: subscriber?.monthly_rate || 0,
     reminder_days_before: subscriber?.reminder_days_before || 7,
+    referred_by: subscriber?.referred_by || '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -59,6 +60,7 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
           reminder_days_before: formData.reminder_days_before,
           subscription_end_date: subscriptionEndDate.toISOString(),
           status: 'active',
+          referred_by: formData.referred_by || null,
         });
 
         if (error) throw error;
@@ -74,6 +76,7 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
             frequency: formData.frequency,
             monthly_rate: formData.monthly_rate,
             reminder_days_before: formData.reminder_days_before,
+            referred_by: formData.referred_by || null,
           })
           .eq('id', subscriber.id);
 
@@ -164,6 +167,29 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
                   className="pl-10 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
+            </div>
+
+            {/* Referred By */}
+            <div className="space-y-2">
+              <Label htmlFor="referred_by" className="text-gray-700">
+                Referred By
+              </Label>
+              <div className="relative">
+                <UserPlus className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  id="referred_by"
+                  type="text"
+                  placeholder="Referrer's name (optional)"
+                  value={formData.referred_by}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, referred_by: e.target.value }))
+                  }
+                  className="pl-10 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+              <p className="text-xs text-gray-500">
+                Name of the person who referred this subscriber
+              </p>
             </div>
 
             {/* Frequency */}

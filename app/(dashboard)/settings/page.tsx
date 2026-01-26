@@ -9,10 +9,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Settings, User, Mail, Lock, Loader2, LogOut, Check, X } from 'lucide-react';
-import { toast } from 'sonner';
 import { testCronJobAction } from '@/app/actions/cron';
 import { sendTestEmailAction } from '@/app/actions/email';
+import { sendTestSMSAction } from '@/app/actions/sms';
+import { exportData } from '@/app/actions/export';
+import { Settings, User, Mail, Lock, Loader2, LogOut, Smartphone, Download } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -26,6 +28,14 @@ export default function SettingsPage() {
   const [cronResult, setCronResult] = useState<{ success: boolean; message: string } | null>(null);
   const [testEmail, setTestEmail] = useState('');
   const [sendingTestEmail, setSendingTestEmail] = useState(false);
+  const [testPhone, setTestPhone] = useState('+977');
+  const [sendingTestSMS, setSendingTestSMS] = useState(false);
+
+  // Export states
+  const [exportType, setExportType] = useState<'subscribers' | 'payments' | 'both'>('subscribers');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,6 +125,75 @@ export default function SettingsPage() {
       toast.error('Failed to send test email');
     } finally {
       setSendingTestEmail(false);
+    }
+  };
+
+  const handleSendTestSMS = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testPhone || testPhone === '+977') {
+      toast.error('Please enter a valid phone number');
+      return;
+    }
+
+    setSendingTestSMS(true);
+    try {
+      const result = await sendTestSMSAction(testPhone);
+      if (result.success) {
+        toast.success('Test SMS sent successfully');
+      } else {
+        toast.error((result as { error?: string }).error || 'Failed to send test SMS');
+      }
+    } catch (error) {
+      toast.error('Failed to send test SMS');
+    } finally {
+      setSendingTestSMS(false);
+    }
+  };
+
+  const handleExport = async () => {
+    // Validate dates if needed, though they are optional in our logic
+    if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+      toast.error('Start date cannot be after end date');
+      return;
+    }
+
+    setExporting(true);
+    try {
+      const result = await exportData(exportType, startDate, endDate);
+
+      if (!result.success) {
+        toast.error(result.error || 'Failed to export data');
+        return;
+      }
+
+      const downloadFile = (content: string, filename: string) => {
+        const blob = new Blob([content], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      };
+
+      if (result.subscribers) {
+        downloadFile(result.subscribers, `subscribers_${new Date().toISOString().split('T')[0]}.csv`);
+      }
+      if (result.payments) {
+        // Small delay to ensure browser handles double download nicely if needed
+        setTimeout(() => {
+          downloadFile(result.payments!, `payments_${new Date().toISOString().split('T')[0]}.csv`);
+        }, 100);
+      }
+
+      toast.success('Export completed successfully');
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export data');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -300,6 +379,142 @@ export default function SettingsPage() {
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* SMS Configuration */}
+        <Card className="bg-white border-gray-200 shadow-sm lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-gray-900 flex items-center gap-2">
+              <Smartphone className="w-5 h-5 text-blue-600" />
+              SMS Configuration
+            </CardTitle>
+            <CardDescription className="text-gray-500">
+              Configure and test SMS notifications via NotificationAPI
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              <h3 className="font-medium text-gray-900">Send Test SMS</h3>
+              <p className="text-sm text-gray-500">
+                Send a test SMS to verify your SMS provider configuration. Use international format: +[country code][number]
+              </p>
+              <form onSubmit={handleSendTestSMS} className="flex gap-2">
+                <Input
+                  type="tel"
+                  placeholder="+9779860560444"
+                  value={testPhone}
+                  onChange={(e) => setTestPhone(e.target.value)}
+                  className="flex-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-blue-600 focus:ring-blue-600"
+                />
+                <Button
+                  type="submit"
+                  disabled={sendingTestSMS}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {sendingTestSMS ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    'Send SMS'
+                  )}
+                </Button>
+              </form>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Export Data */}
+        <Card className="bg-white border-gray-200 shadow-sm lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-gray-900 flex items-center gap-2">
+              <Download className="w-5 h-5 text-blue-600" />
+              Export Data
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              <div className="flex flex-col gap-4">
+                <div className="space-y-2">
+                  <Label>Data to Export</Label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="exportType"
+                        value="subscribers"
+                        checked={exportType === 'subscribers'}
+                        onChange={(e) => setExportType(e.target.value as 'subscribers')}
+                        className="text-blue-600 focus:ring-blue-600 border-gray-300"
+                      />
+                      Subscribers
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="exportType"
+                        value="payments"
+                        checked={exportType === 'payments'}
+                        onChange={(e) => setExportType(e.target.value as 'payments')}
+                        className="text-blue-600 focus:ring-blue-600 border-gray-300"
+                      />
+                      Payments
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="exportType"
+                        value="both"
+                        checked={exportType === 'both'}
+                        onChange={(e) => setExportType(e.target.value as 'both')}
+                        className="text-blue-600 focus:ring-blue-600 border-gray-300"
+                      />
+                      Both
+                    </label>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="startDate">Start Date</Label>
+                    <Input
+                      id="startDate"
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="bg-gray-50 border-gray-200"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="endDate">End Date</Label>
+                    <Input
+                      id="endDate"
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="bg-gray-50 border-gray-200"
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleExport}
+                  disabled={exporting}
+                  className="w-full md:w-auto self-start bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {exporting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Exporting...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-2" />
+                      Export CSV
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           </CardContent>

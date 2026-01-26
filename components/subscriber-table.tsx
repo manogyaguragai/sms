@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import {
   Table,
@@ -29,28 +29,77 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { MoreHorizontal, Eye, Trash2, Search, Loader2 } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { MoreHorizontal, Eye, Trash2, Search, Loader2, AlertCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter } from 'lucide-react';
 import { format, differenceInDays, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
+import { formatNepaliDate } from '@/lib/nepali-date';
 import type { Subscriber } from '@/lib/types';
 
 interface SubscriberTableProps {
-  initialSubscribers: Subscriber[];
+  subscribers: Subscriber[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  currentSearch: string;
+  currentStatus: string;
+  currentFrequency: string;
 }
 
-export function SubscriberTable({ initialSubscribers }: SubscriberTableProps) {
-  const [subscribers, setSubscribers] = useState(initialSubscribers);
-  const [search, setSearch] = useState('');
+export function SubscriberTable({
+  subscribers,
+  totalCount,
+  page,
+  pageSize,
+  totalPages,
+  currentSearch,
+  currentStatus,
+  currentFrequency,
+}: SubscriberTableProps) {
+  const [search, setSearch] = useState(currentSearch);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
-  const filteredSubscribers = subscribers.filter(
-    (sub) =>
-      sub.full_name.toLowerCase().includes(search.toLowerCase()) ||
-      sub.email.toLowerCase().includes(search.toLowerCase())
-  );
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (search !== currentSearch) {
+        updateParams({ search, page: '1' });
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const updateParams = useCallback((updates: Record<string, string>) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) {
+        params.set(key, value);
+      } else {
+        params.delete(key);
+      }
+    });
+
+    router.push(`${pathname}?${params.toString()}`);
+  }, [searchParams, pathname, router]);
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -64,8 +113,8 @@ export function SubscriberTable({ initialSubscribers }: SubscriberTableProps) {
 
       if (error) throw error;
 
-      setSubscribers((prev) => prev.filter((s) => s.id !== deleteId));
       toast.success('Subscriber deleted successfully');
+      router.refresh();
     } catch (error) {
       console.error('Error deleting subscriber:', error);
       toast.error('Failed to delete subscriber');
@@ -81,6 +130,8 @@ export function SubscriberTable({ initialSubscribers }: SubscriberTableProps) {
         return <Badge className="bg-green-50 text-green-600 border-green-200">Active</Badge>;
       case 'expired':
         return <Badge className="bg-red-50 text-red-600 border-red-200">Expired</Badge>;
+      case 'inactive':
+        return <Badge className="bg-amber-50 text-amber-600 border-amber-200">Inactive</Badge>;
       case 'cancelled':
         return <Badge className="bg-gray-100 text-gray-500 border-gray-200">Cancelled</Badge>;
       default:
@@ -96,17 +147,106 @@ export function SubscriberTable({ initialSubscribers }: SubscriberTableProps) {
     return <span className="text-gray-500">{days} days</span>;
   };
 
+  // Calculate display range
+  const startItem = (page - 1) * pageSize + 1;
+  const endItem = Math.min(page * pageSize, totalCount);
+
+  // Generate page numbers
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxVisible = 5;
+
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (page <= 3) {
+        for (let i = 1; i <= 4; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      } else if (page >= totalPages - 2) {
+        pages.push(1);
+        pages.push('...');
+        for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
+      } else {
+        pages.push(1);
+        pages.push('...');
+        for (let i = page - 1; i <= page + 1; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      }
+    }
+
+    return pages;
+  };
+
   return (
     <>
-      {/* Search */}
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-        <Input
-          placeholder="Search by name or email..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10 bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-blue-600 max-w-sm"
-        />
+      {/* Filters and Search Row */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        {/* Search */}
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <Input
+            placeholder="Search by name or email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10 bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-blue-600"
+          />
+        </div>
+
+        {/* Filters */}
+        <div className="flex gap-2 items-center">
+          <Filter className="w-4 h-4 text-gray-500" />
+
+          {/* Status Filter */}
+          <Select
+            value={currentStatus || 'all'}
+            onValueChange={(value) => updateParams({ status: value === 'all' ? '' : value, page: '1' })}
+          >
+            <SelectTrigger className="w-[140px] bg-white border-gray-200 text-gray-900">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent className="bg-white border-gray-200">
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+              <SelectItem value="expired">Expired</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Frequency Filter */}
+          <Select
+            value={currentFrequency || 'all'}
+            onValueChange={(value) => updateParams({ frequency: value === 'all' ? '' : value, page: '1' })}
+          >
+            <SelectTrigger className="w-[140px] bg-white border-gray-200 text-gray-900">
+              <SelectValue placeholder="Frequency" />
+            </SelectTrigger>
+            <SelectContent className="bg-white border-gray-200">
+              <SelectItem value="all">All Frequency</SelectItem>
+              <SelectItem value="monthly">Monthly</SelectItem>
+              <SelectItem value="annual">Annual</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Results Per Page */}
+          <Select
+            value={String(pageSize)}
+            onValueChange={(value) => updateParams({ pageSize: value, page: '1' })}
+          >
+            <SelectTrigger className="w-[100px] bg-white border-gray-200 text-gray-900">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-white border-gray-200">
+              <SelectItem value="10">10 / page</SelectItem>
+              <SelectItem value="25">25 / page</SelectItem>
+              <SelectItem value="50">50 / page</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Table */}
@@ -126,23 +266,39 @@ export function SubscriberTable({ initialSubscribers }: SubscriberTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredSubscribers.length === 0 ? (
+            {subscribers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-gray-500">
-                  {search ? 'No subscribers found matching your search' : 'No subscribers yet'}
+                <TableCell colSpan={9} className="text-center py-8 text-gray-500">
+                  {currentSearch || currentStatus || currentFrequency
+                    ? 'No subscribers found matching your filters'
+                    : 'No subscribers yet'}
                 </TableCell>
               </TableRow>
             ) : (
-              filteredSubscribers.map((subscriber) => (
+                subscribers.map((subscriber) => (
                 <TableRow
                   key={subscriber.id}
                   className="border-gray-200 hover:bg-gray-50 cursor-pointer"
                   onClick={() => router.push(`/subscribers/${subscriber.id}`)}
                 >
                   <TableCell className="font-medium text-gray-900">
-                    {subscriber.full_name}
+                    <div className="flex items-center gap-2">
+                      {subscriber.full_name}
+                      {subscriber.status === 'inactive' && subscriber.status_notes && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <AlertCircle className="w-4 h-4 text-amber-500 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs bg-gray-900 text-white">
+                              <p className="text-sm">{subscriber.status_notes}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
                   </TableCell>
-                  <TableCell className="text-gray-500">{subscriber.email}</TableCell>
+                  <TableCell className="text-gray-500">{subscriber.email || 'N/A'}</TableCell>
                   <TableCell>{getStatusBadge(subscriber.status)}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="border-gray-300 text-gray-600 capitalize">
@@ -156,7 +312,7 @@ export function SubscriberTable({ initialSubscribers }: SubscriberTableProps) {
                     {subscriber.reminder_days_before} days
                   </TableCell>
                   <TableCell className="text-gray-500">
-                    {format(new Date(subscriber.subscription_end_date), 'MMM d, yyyy')}
+                      {formatNepaliDate(subscriber.subscription_end_date, 'short')}
                   </TableCell>
                   <TableCell>{getDaysRemaining(subscriber.subscription_end_date)}</TableCell>
                   <TableCell className="text-right">
@@ -195,6 +351,81 @@ export function SubscriberTable({ initialSubscribers }: SubscriberTableProps) {
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination Controls */}
+      {totalCount > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
+          {/* Results Info */}
+          <p className="text-sm text-gray-500">
+            Showing {startItem} to {endItem} of {totalCount} results
+          </p>
+
+          {/* Page Navigation */}
+          <div className="flex items-center gap-1">
+            {/* First Page */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => updateParams({ page: '1' })}
+              disabled={page === 1}
+              className="border-gray-200 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </Button>
+
+            {/* Previous Page */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => updateParams({ page: String(page - 1) })}
+              disabled={page === 1}
+              className="border-gray-200 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+
+            {/* Page Numbers */}
+            {getPageNumbers().map((pageNum, index) => (
+              <Button
+                key={index}
+                variant={pageNum === page ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => typeof pageNum === 'number' && updateParams({ page: String(pageNum) })}
+                disabled={typeof pageNum !== 'number'}
+                className={
+                  pageNum === page
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'border-gray-200 text-gray-600 hover:bg-gray-100'
+                }
+              >
+                {pageNum}
+              </Button>
+            ))}
+
+            {/* Next Page */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => updateParams({ page: String(page + 1) })}
+              disabled={page === totalPages}
+              className="border-gray-200 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+
+            {/* Last Page */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => updateParams({ page: String(totalPages) })}
+              disabled={page === totalPages}
+              className="border-gray-200 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
