@@ -170,6 +170,25 @@ export async function createUser(
       throw error;
     }
 
+    // Explicitly update the profile to ensure the role is set correctly
+    // This bypasses any issues with the database trigger
+    const { error: profileError } = await adminSupabase
+      .from('profiles')
+      .update({ role, full_name: fullName || null })
+      .eq('id', data.user.id);
+
+    if (profileError) {
+      console.error('Profile update error:', profileError);
+      // If profile update fails, try to insert it
+      const { error: insertError } = await adminSupabase
+        .from('profiles')
+        .insert({ id: data.user.id, role, full_name: fullName || null });
+      
+      if (insertError) {
+        console.error('Profile insert error:', insertError);
+      }
+    }
+
     return { success: true, userId: data.user.id };
   } catch (error: any) {
     console.error('createUser caught error:', error);

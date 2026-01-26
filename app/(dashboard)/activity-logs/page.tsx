@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { getActivityLogs, getLogUsers, canViewCommunicationLogs, type ActivityLogsResult } from '@/app/actions/activity-logs';
 import { useRole, getRoleLabel, getRoleBadgeColor } from '@/lib/hooks/use-role';
+import { formatNepaliDateTime } from '@/lib/nepali-date';
+import { NepaliDatePicker } from '@/components/ui/nepali-date-picker';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -56,17 +57,24 @@ export default function ActivityLogsPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(20);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<{ id: string; full_name: string | null; role: string }[]>([]);
   const [canViewComms, setCanViewComms] = useState(false);
 
-  // Filters
+  // Get today's date in Nepali format YYYY-MM-DD for default filters
+  const getTodayNepaliDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0]; // Use ISO date for the HTML input
+  };
+
+  // Filters - default to today
   const [filterUser, setFilterUser] = useState('all');
   const [filterAction, setFilterAction] = useState('all');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(getTodayNepaliDate);
+  const [endDate, setEndDate] = useState(getTodayNepaliDate);
   const [showCommsOnly, setShowCommsOnly] = useState(false);
+
 
   // Selected log for detail view
   const [selectedLog, setSelectedLog] = useState<ActivityLog | null>(null);
@@ -141,16 +149,7 @@ export default function ActivityLogsPage() {
     );
   }
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  // Date formatting now uses Nepali calendar via formatNepaliDateTime
 
   return (
     <div className="p-6 lg:p-8 space-y-6">
@@ -198,7 +197,7 @@ export default function ActivityLogsPage() {
                   <SelectItem value="all">All Users</SelectItem>
                   {users.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
-                      {user.full_name || 'Unknown'} ({getRoleLabel(user.role as any)})
+                      {user.full_name && !user.full_name.includes('@') ? user.full_name : 'User'} ({getRoleLabel(user.role as any)})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -224,10 +223,10 @@ export default function ActivityLogsPage() {
             {/* Start Date */}
             <div className="space-y-2">
               <Label className="text-xs text-gray-500">From Date</Label>
-              <Input
-                type="date"
+              <NepaliDatePicker
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={setStartDate}
+                placeholder="Select date"
                 className="bg-gray-50 border-gray-200"
               />
             </div>
@@ -235,10 +234,10 @@ export default function ActivityLogsPage() {
             {/* End Date */}
             <div className="space-y-2">
               <Label className="text-xs text-gray-500">To Date</Label>
-              <Input
-                type="date"
+              <NepaliDatePicker
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={setEndDate}
+                placeholder="Select date"
                 className="bg-gray-50 border-gray-200"
               />
             </div>
@@ -310,7 +309,7 @@ export default function ActivityLogsPage() {
                                 <>
                                   <span className="flex items-center gap-1">
                                     <User className="w-3 h-3" />
-                                    {log.profiles.full_name || 'Unknown'}
+                                    {log.profiles.full_name && !log.profiles.full_name.includes('@') ? log.profiles.full_name : 'User'}
                                   </span>
                                   <Badge className={`text-xs ${getRoleBadgeColor(log.profiles.role)}`}>
                                     {getRoleLabel(log.profiles.role)}
@@ -324,7 +323,7 @@ export default function ActivityLogsPage() {
                         {/* Timestamp */}
                         <div className="text-xs text-gray-400 whitespace-nowrap flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          {formatDate(log.created_at)}
+                          {formatNepaliDateTime(log.created_at)}
                         </div>
                       </div>
 
@@ -362,35 +361,52 @@ export default function ActivityLogsPage() {
             </ScrollArea>
           )}
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between p-4 border-t border-gray-100">
+          {/* Pagination - always show */}
+          <div className="flex items-center justify-between p-4 border-t border-gray-100">
+            <div className="flex items-center gap-4">
               <p className="text-sm text-gray-500">
-                Showing {(page - 1) * pageSize + 1} - {Math.min(page * pageSize, totalCount)} of {totalCount}
+                {totalCount > 0
+                  ? `Showing ${(page - 1) * pageSize + 1} - ${Math.min(page * pageSize, totalCount)} of ${totalCount}`
+                  : 'No results'}
               </p>
+              {/* Page Size Selector */}
               <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(page - 1)}
-                  disabled={page === 1 || loading}
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-                <span className="text-sm text-gray-500">
-                  Page {page} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(page + 1)}
-                  disabled={page === totalPages || loading}
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
+                <Label className="text-xs text-gray-500">Per page:</Label>
+                <Select value={String(pageSize)} onValueChange={(value) => { setPageSize(Number(value)); setPage(1); }}>
+                  <SelectTrigger className="w-[80px] h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-          )}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(page - 1)}
+                disabled={page === 1 || loading}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <span className="text-sm text-gray-500">
+                Page {page} of {Math.max(1, totalPages)}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(page + 1)}
+                disabled={page >= totalPages || loading || totalPages === 0}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

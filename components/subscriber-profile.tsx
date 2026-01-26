@@ -418,7 +418,7 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
                           </p>
                           {payment.payment_for_period && (
                             <Badge variant="outline" className="text-xs border-blue-200 text-blue-600 bg-blue-50">
-                              {formatNepaliDate(payment.payment_for_period, 'short')}
+                              For: {formatNepaliDate(payment.payment_for_period, 'short')}
                             </Badge>
                           )}
                         </div>

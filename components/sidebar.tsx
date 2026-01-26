@@ -96,7 +96,8 @@ export function Sidebar() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-gray-900 truncate">
-                  {profile.full_name || 'User'}
+                    {/* Show 'User' if full_name is email-like or empty */}
+                    {profile.full_name && !profile.full_name.includes('@') ? profile.full_name : 'User'}
                 </p>
                 <Badge className={`text-xs ${getRoleBadgeColor(profile.role)}`}>
                   {getRoleLabel(profile.role)}

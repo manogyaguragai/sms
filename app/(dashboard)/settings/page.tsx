@@ -253,7 +253,9 @@ export default function SettingsPage() {
                     <Shield className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{profile.full_name || 'User'}</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {profile.full_name && !profile.full_name.includes('@') ? profile.full_name : 'User'}
+                    </p>
                     <Badge className={`text-xs ${getRoleBadgeColor(profile.role)}`}>
                       {getRoleLabel(profile.role)}
                     </Badge>

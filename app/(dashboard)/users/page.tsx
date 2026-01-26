@@ -202,7 +202,7 @@ export default function UsersPage() {
                     </div>
                     <div>
                       <p className="font-medium text-gray-900">
-                        {user.full_name || 'Unnamed User'}
+                        {user.full_name && !user.full_name.includes('@') ? user.full_name : 'User'}
                       </p>
                       <Badge className={`text-xs ${getRoleBadgeColor(user.role)}`}>
                         {getRoleLabel(user.role)}
