@@ -25,6 +25,7 @@ export interface ActivityLogsResult {
 /**
  * Get activity logs with pagination and filters
  * Uses admin client with server-side role-based filtering to avoid RLS issues
+ * Note: activity_logs.user_id references auth.users, not profiles, so we fetch profiles separately
  */
 export async function getActivityLogs(
   params: ActivityLogsParams = {}
@@ -51,17 +52,10 @@ export async function getActivityLogs(
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  // Build query with profile join
+  // Build query WITHOUT profile join (activity_logs.user_id references auth.users, not profiles)
   let query = supabase
     .from('activity_logs')
-    .select(`
-      *,
-      profiles:user_id (
-        id,
-        role,
-        full_name
-      )
-    `, { count: 'exact' });
+    .select('*', { count: 'exact' });
 
   // For admins, filter to only show staff logs and system logs
   if (role === 'admin') {
@@ -120,11 +114,35 @@ export async function getActivityLogs(
     };
   }
 
+  // Fetch profiles for users in the logs
+  const userIds = [...new Set(data?.filter(log => log.user_id).map(log => log.user_id) || [])];
+  let profilesMap: Record<string, { id: string; role: string; full_name: string | null }> = {};
+  
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, role, full_name')
+      .in('id', userIds);
+    
+    if (profiles) {
+      profilesMap = profiles.reduce((acc, profile) => {
+        acc[profile.id] = profile;
+        return acc;
+      }, {} as Record<string, { id: string; role: string; full_name: string | null }>);
+    }
+  }
+
+  // Attach profiles to logs
+  const logsWithProfiles = (data || []).map(log => ({
+    ...log,
+    profiles: log.user_id ? profilesMap[log.user_id] || null : null,
+  }));
+
   const totalCount = count || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
 
   return {
-    logs: data as ActivityLog[],
+    logs: logsWithProfiles as ActivityLog[],
     totalCount,
     page,
     pageSize,
@@ -134,6 +152,7 @@ export async function getActivityLogs(
 
 /**
  * Get unique users who have activity logs (for filter dropdown)
+ * Note: activity_logs.user_id references auth.users, not profiles, so we fetch profiles separately
  */
 export async function getLogUsers(): Promise<{ id: string; full_name: string | null; role: string }[]> {
   const role = await getCurrentUserRole();
@@ -144,44 +163,49 @@ export async function getLogUsers(): Promise<{ id: string; full_name: string | n
 
   const supabase = createAdminClient();
 
-  let query = supabase
+  // Get unique user IDs from activity logs
+  const { data: logs, error } = await supabase
     .from('activity_logs')
-    .select(`
-      user_id,
-      profiles:user_id (
-        id,
-        full_name,
-        role
-      )
-    `)
+    .select('user_id')
     .not('user_id', 'is', null);
-
-  const { data, error } = await query;
 
   if (error) {
     console.error('Error fetching log users:', error);
     return [];
   }
 
-  // Deduplicate users and apply role-based filtering
-  const userMap = new Map<string, { id: string; full_name: string | null; role: string }>();
+  // Get unique user IDs
+  const uniqueUserIds = [...new Set(logs?.map(log => log.user_id).filter(Boolean) || [])];
   
-  for (const log of data) {
-    const profile = log.profiles as any;
-    if (profile && !userMap.has(profile.id)) {
-      // Admins can only see staff users
-      if (role === 'admin' && profile.role !== 'staff') {
-        continue;
-      }
-      userMap.set(profile.id, {
-        id: profile.id,
-        full_name: profile.full_name,
-        role: profile.role,
-      });
-    }
+  if (uniqueUserIds.length === 0) {
+    return [];
   }
 
-  return Array.from(userMap.values());
+  // Fetch profiles for these users
+  const { data: profiles, error: profilesError } = await supabase
+    .from('profiles')
+    .select('id, full_name, role')
+    .in('id', uniqueUserIds);
+
+  if (profilesError) {
+    console.error('Error fetching profiles:', profilesError);
+    return [];
+  }
+
+  // Apply role-based filtering
+  const filteredProfiles = (profiles || []).filter(profile => {
+    // Admins can only see staff users
+    if (role === 'admin' && profile.role !== 'staff') {
+      return false;
+    }
+    return true;
+  });
+
+  return filteredProfiles.map(profile => ({
+    id: profile.id,
+    full_name: profile.full_name,
+    role: profile.role,
+  }));
 }
 
 /**

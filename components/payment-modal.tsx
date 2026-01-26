@@ -32,6 +32,7 @@ import { toast } from 'sonner';
 import { addMonths, addDays, format, startOfMonth } from 'date-fns';
 import imageCompression from 'browser-image-compression';
 import type { Subscriber } from '@/lib/types';
+import { logPaymentCreation } from '@/app/actions/subscriber';
 
 interface PaymentModalProps {
   subscriber: Subscriber;
@@ -201,7 +202,7 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
       const periodLabel = getSelectedPeriodsLabel();
 
       // Create payment record with payment_for_period
-      const { error: paymentError } = await supabase.from('payments').insert({
+      const { data: paymentData, error: paymentError } = await supabase.from('payments').insert({
         subscriber_id: subscriber.id,
         amount_paid: amount,
         notes: notes ? `${notes} | Payment for: ${periodLabel}` : `Payment for: ${periodLabel}`,
@@ -210,9 +211,14 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
         receipt_number: receiptNumber || null,
         payment_mode: paymentMode || null,
         payment_date: new Date(paymentDate).toISOString(),
-      });
+      }).select('id').single();
 
       if (paymentError) throw paymentError;
+
+      // Log the payment creation
+      if (paymentData) {
+        await logPaymentCreation(paymentData.id, subscriber.full_name, amount);
+      }
 
       // Update subscriber's subscription_end_date
       // Add duration based on number of months selected (for monthly) or 365 days (for annual)
