@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { jsonToCsv } from '@/lib/csv';
-import { format } from 'date-fns';
+import { formatNepaliDateTime } from '@/lib/nepali-date';
 
 type ExportType = 'subscribers' | 'payments' | 'both';
 
@@ -17,9 +17,9 @@ export async function exportData(
     let subscribersCsv: string | undefined;
     let paymentsCsv: string | undefined;
 
-    // Helper to format date for consistency
+    // Helper to format date in Nepali B.S. format for consistency
     const formatDate = (date: string | null) => 
-      date ? format(new Date(date), 'yyyy-MM-dd HH:mm:ss') : '';
+      date ? formatNepaliDateTime(date) : '';
     
     // Adjust end date to include the full day
     const adjustedEndDate = endDate ? `${endDate}T23:59:59.999Z` : undefined;

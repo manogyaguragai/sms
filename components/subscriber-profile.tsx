@@ -38,12 +38,13 @@ import {
   ToggleRight,
   Power,
 } from 'lucide-react';
-import { format, differenceInDays, subMonths, subYears, addDays, startOfDay } from 'date-fns';
+import { differenceInDays, subMonths, subYears, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
 import { PaymentModal } from '@/components/payment-modal';
 import { SubscriberForm } from '@/components/subscriber-form';
 import type { Subscriber, Payment } from '@/lib/types';
 import { updateSubscriptionDate, toggleSubscriberStatus } from '@/app/actions/subscriber';
+import { formatNepaliDate, formatNepaliDateTime, toNepaliDateString, fromNepaliDateString, NEPALI_MONTHS } from '@/lib/nepali-date';
 
 interface SubscriberProfileProps {
   subscriber: Subscriber;
@@ -58,7 +59,7 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showDateDialog, setShowDateDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [newEndDate, setNewEndDate] = useState(subscriber.subscription_end_date.split('T')[0]);
+  const [newEndDate, setNewEndDate] = useState(() => toNepaliDateString(subscriber.subscription_end_date));
   const [updatingDate, setUpdatingDate] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
 
@@ -99,7 +100,9 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
   const handleUpdateDate = async () => {
     setUpdatingDate(true);
     try {
-      const result = await updateSubscriptionDate(subscriber.id, new Date(newEndDate).toISOString());
+      // Convert Nepali date string to JS Date before saving
+      const jsDate = fromNepaliDateString(newEndDate);
+      const result = await updateSubscriptionDate(subscriber.id, jsDate.toISOString());
       if (result.success) {
         toast.success(result.message);
         setShowDateDialog(false);
@@ -310,7 +313,7 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
             <div>
               <p className="text-sm text-gray-500">Last Paid</p>
               <p className="text-lg font-semibold text-gray-900">
-                {lastPaymentDate ? format(lastPaymentDate, 'MMM d, yyyy') : 'No payments'}
+                {lastPaymentDate ? formatNepaliDate(lastPaymentDate, 'short') : 'No payments'}
               </p>
             </div>
           </CardContent>
@@ -351,13 +354,13 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
             <div className="space-y-2">
               <p className="text-sm text-gray-500">Subscription End Date</p>
               <p className="text-gray-900">
-                {format(new Date(subscriber.subscription_end_date), 'MMMM d, yyyy')}
+                {formatNepaliDate(subscriber.subscription_end_date, 'long')}
               </p>
             </div>
             <div className="space-y-2">
               <p className="text-sm text-gray-500">Member Since</p>
               <p className="text-gray-900">
-                {format(new Date(subscriber.created_at), 'MMMM d, yyyy')}
+                {formatNepaliDate(subscriber.created_at, 'long')}
               </p>
             </div>
             <Separator className="bg-gray-200" />
@@ -412,12 +415,12 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
                           </p>
                           {payment.payment_for_period && (
                             <Badge variant="outline" className="text-xs border-blue-200 text-blue-600 bg-blue-50">
-                              {format(new Date(payment.payment_for_period), 'MMM yyyy')}
+                              {formatNepaliDate(payment.payment_for_period, 'short')}
                             </Badge>
                           )}
                         </div>
                         <p className="text-sm text-gray-500">
-                          {format(new Date(payment.payment_date), 'MMM d, yyyy h:mm a')}
+                          {formatNepaliDateTime(payment.payment_date)}
                         </p>
                         {payment.notes && (
                           <p className="text-xs text-gray-500 mt-1">{payment.notes}</p>
@@ -472,13 +475,20 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
               Manually update the subscription end date for {subscriber.full_name}.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4 space-y-2">
+            <label className="text-sm text-gray-600">
+              Enter date in B.S. format (YYYY-MM-DD)
+            </label>
             <Input 
-              type="date" 
+              type="text"
+              placeholder="2082-10-12"
               value={newEndDate} 
               onChange={(e) => setNewEndDate(e.target.value)}
               className="w-full"
             />
+            <p className="text-xs text-gray-500">
+              Example: 2082-10-12 for Magh 12, 2082
+            </p>
           </div>
           <DialogFooter>
              <Button variant="outline" onClick={() => setShowDateDialog(false)} className="text-gray-600">Cancel</Button>

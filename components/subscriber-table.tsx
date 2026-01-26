@@ -45,6 +45,7 @@ import {
 import { MoreHorizontal, Eye, Trash2, Search, Loader2, AlertCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter } from 'lucide-react';
 import { format, differenceInDays, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
+import { formatNepaliDate } from '@/lib/nepali-date';
 import type { Subscriber } from '@/lib/types';
 
 interface SubscriberTableProps {
@@ -311,7 +312,7 @@ export function SubscriberTable({
                     {subscriber.reminder_days_before} days
                   </TableCell>
                   <TableCell className="text-gray-500">
-                    {format(new Date(subscriber.subscription_end_date), 'MMM d, yyyy')}
+                      {formatNepaliDate(subscriber.subscription_end_date, 'short')}
                   </TableCell>
                   <TableCell>{getDaysRemaining(subscriber.subscription_end_date)}</TableCell>
                   <TableCell className="text-right">
