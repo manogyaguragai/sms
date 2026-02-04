@@ -21,6 +21,7 @@ import {
   X,
   Activity,
   Shield,
+  DollarSign,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 
@@ -34,6 +35,7 @@ interface NavItem {
 
 const allNavigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Financials', href: '/financials', icon: DollarSign },
   { name: 'Subscribers', href: '/subscribers', icon: Users },
   { name: 'Add New', href: '/subscribers/new', icon: UserPlus },
   { name: 'Activity Logs', href: '/activity-logs', icon: Activity, requiredRoles: ['super_admin', 'admin'] },

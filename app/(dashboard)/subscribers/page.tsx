@@ -11,6 +11,7 @@ interface PageProps {
     search?: string;
     status?: string;
     frequency?: string;
+    noPayments?: string;
     sortBy?: string;
     sortOrder?: string;
   }>;
@@ -24,6 +25,7 @@ export default async function SubscribersPage({ searchParams }: PageProps) {
   const search = params.search || '';
   const status = params.status || '';
   const frequency = params.frequency || '';
+  const noPayments = params.noPayments === 'true';
   const sortBy = (params.sortBy as SortColumn) || 'subscription_end_date';
   const sortOrder = (params.sortOrder as SortOrder) || 'asc';
 
@@ -33,6 +35,7 @@ export default async function SubscribersPage({ searchParams }: PageProps) {
     search,
     status,
     frequency,
+    noPayments,
     sortBy,
     sortOrder,
   });
@@ -68,6 +71,7 @@ export default async function SubscribersPage({ searchParams }: PageProps) {
         currentSearch={search}
         currentStatus={status}
         currentFrequency={frequency}
+        currentNoPayments={noPayments}
         currentSortBy={sortBy}
         currentSortOrder={sortOrder}
       />

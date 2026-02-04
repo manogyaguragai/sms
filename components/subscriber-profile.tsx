@@ -47,6 +47,7 @@ import { SubscriberForm } from '@/components/subscriber-form';
 import type { Subscriber, Payment } from '@/lib/types';
 import { updateSubscriptionDate, toggleSubscriberStatus } from '@/app/actions/subscriber';
 import { formatNepaliDate, formatNepaliDateTime, toNepaliDateString, fromNepaliDateString, NEPALI_MONTHS } from '@/lib/nepali-date';
+import { PaymentPeriodCalendar } from '@/components/payment-period-calendar';
 
 interface SubscriberProfileProps {
   subscriber: Subscriber;
@@ -185,71 +186,80 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
       </Button>
 
       {/* Header */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-4">
-          <Avatar className="w-14 h-14 md:w-16 md:h-16 bg-blue-600 text-lg md:text-xl shadow-lg ring-4 ring-white">
-            <AvatarFallback className="bg-transparent text-white">
-              {subscriber.full_name
-                .split(' ')
-                .map((n) => n[0])
-                .join('')
-                .slice(0, 2)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900 truncate">
-              {subscriber.full_name}
-            </h1>
-            {subscriber.referred_by && (
-              <p className="text-sm text-gray-500 truncate">
-                Referred by {subscriber.referred_by}
-              </p>
-            )}
-            <p className="text-gray-500 text-sm">{subscriber.phone || 'No phone'}</p>
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              {getStatusBadge(subscriber.status)}
-              <Badge variant="outline" className="border-gray-200 text-gray-600 capitalize">
-                {subscriber.frequency}
-              </Badge>
+      <div className="flex items-stretch gap-12">
+        {/* Left side - Name, badges, and buttons */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-start gap-4 flex-wrap">
+            <Avatar className="w-14 h-14 md:w-16 md:h-16 bg-blue-600 text-lg md:text-xl shadow-lg ring-4 ring-white shrink-0">
+              <AvatarFallback className="bg-transparent text-white">
+                {subscriber.full_name
+                  .split(' ')
+                  .map((n) => n[0])
+                  .join('')
+                  .slice(0, 2)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <h1 className="text-xl md:text-2xl font-bold text-gray-900 truncate">
+                {subscriber.full_name}
+              </h1>
+              {subscriber.referred_by && (
+                <p className="text-sm text-gray-500 truncate">
+                  Referred by {subscriber.referred_by}
+                </p>
+              )}
+              <p className="text-gray-500 text-sm">{subscriber.phone || 'No phone'}</p>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {getStatusBadge(subscriber.status)}
+                <Badge variant="outline" className="border-gray-200 text-gray-600 capitalize">
+                  {subscriber.frequency}
+                </Badge>
+              </div>
             </div>
+          </div>
+
+          {/* Action buttons - Full width on mobile */}
+          <div className="grid grid-cols-2 sm:flex gap-2 mt-1">
+            <Button
+              variant="outline"
+              onClick={handleToggleStatus}
+              disabled={togglingStatus}
+              className="border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-10"
+            >
+              {togglingStatus ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Power className="w-4 h-4 mr-2" />}
+              <span className="hidden sm:inline">{subscriber.status === 'active' ? 'Deactivate' : 'Activate'}</span>
+              <span className="sm:hidden">{subscriber.status === 'active' ? 'Off' : 'On'}</span>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowEditModal(true)}
+              className="border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-10"
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              Edit
+            </Button>
+            <Button
+              onClick={() => setShowPaymentModal(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white h-10 col-span-2 sm:col-span-1"
+            >
+              <CreditCard className="w-4 h-4 mr-2" />
+              Record Payment
+            </Button>
           </div>
         </div>
 
-        {/* Action buttons - Full width on mobile */}
-        <div className="grid grid-cols-2 sm:flex gap-2">
-          <Button
-            variant="outline"
-            onClick={handleToggleStatus}
-            disabled={togglingStatus}
-            className="border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-10"
-          >
-             {togglingStatus ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Power className="w-4 h-4 mr-2" />}
-            <span className="hidden sm:inline">{subscriber.status === 'active' ? 'Deactivate' : 'Activate'}</span>
-            <span className="sm:hidden">{subscriber.status === 'active' ? 'Off' : 'On'}</span>
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setShowEditModal(true)}
-            className="border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-10"
-          >
-            <Edit className="w-4 h-4 mr-2" />
-            Edit
-          </Button>
-          <Button
-            onClick={() => setShowPaymentModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white h-10 col-span-2 sm:col-span-1"
-          >
-            <CreditCard className="w-4 h-4 mr-2" />
-            Record Payment
-          </Button>
+        {/* Payment Period Calendar - positioned after buttons with gap */}
+        <div className="hidden md:flex items-stretch" style={{ width: '220px' }}>
+          <PaymentPeriodCalendar
+            payments={payments}
+            className="w-full h-full"
+          />
         </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-
-
-        {/* Expires Card with details */}
+        {/* Subscription Status Card */}
         <Card className="bg-white border-gray-200 shadow-sm col-span-1 lg:col-span-2">
           <CardContent className="p-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -283,9 +293,9 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
                     )}
                   </p>
                   <Separator orientation="vertical" className="h-4 bg-gray-200" />
-                   <p className="text-sm text-gray-500">
-                     {daysConsumed > 0 ? daysConsumed : 0} days consumed
-                   </p>
+                  <p className="text-sm text-gray-500">
+                    {daysConsumed > 0 ? daysConsumed : 0} days consumed
+                  </p>
                 </div>
               </div>
             </div>
@@ -296,7 +306,7 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
         </Card>
 
         {/* Last Paid Date */}
-         <Card className="bg-white border-gray-200 shadow-sm">
+        <Card className="bg-white border-gray-200 shadow-sm">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center">
               <Calendar className="w-5 h-5 text-emerald-600" />

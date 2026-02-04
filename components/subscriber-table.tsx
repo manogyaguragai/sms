@@ -59,6 +59,7 @@ interface SubscriberTableProps {
   currentSearch: string;
   currentStatus: string;
   currentFrequency: string;
+  currentNoPayments: boolean;
   currentSortBy: SortColumn;
   currentSortOrder: SortOrder;
 }
@@ -72,6 +73,7 @@ export function SubscriberTable({
   currentSearch,
   currentStatus,
   currentFrequency,
+  currentNoPayments,
   currentSortBy,
   currentSortOrder,
 }: SubscriberTableProps) {
@@ -226,8 +228,6 @@ export function SubscriberTable({
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="inactive">Inactive</SelectItem>
-              <SelectItem value="expired">Expired</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
             </SelectContent>
           </Select>
 
@@ -245,6 +245,19 @@ export function SubscriberTable({
               <SelectItem value="annual">Annual</SelectItem>
             </SelectContent>
           </Select>
+
+          {/* No Payments Toggle */}
+          <Button
+            variant={currentNoPayments ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => updateParams({ noPayments: currentNoPayments ? '' : 'true', page: '1' })}
+            className={currentNoPayments
+              ? 'bg-blue-600 text-white hover:bg-blue-700 h-10'
+              : 'border-gray-200 text-gray-600 hover:bg-gray-100 h-10'
+            }
+          >
+            No Payments Yet
+          </Button>
 
           {/* Results Per Page - Hidden on mobile */}
           <Select
