@@ -88,11 +88,11 @@ export default async function DashboardPage() {
   const { mrr, totalSubscribers, expiringSoon, recentPayments, chartData, totalRevenue } = await getDashboardData();
 
   return (
-    <div className="p-6 lg:p-8 space-y-8">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard</h1>
+        <p className="text-gray-500 mt-1 text-sm sm:text-base">
           Overview of your subscription management system
         </p>
       </div>

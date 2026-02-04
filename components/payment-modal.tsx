@@ -332,8 +332,8 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
                 </Button>
               </div>
 
-              {/* Month grid */}
-              <div className="grid grid-cols-4 gap-2">
+              {/* Month grid - 3 cols on mobile, 4 on tablet+ */}
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                 {months.map((month, index) => (
                   <button
                     key={month}
