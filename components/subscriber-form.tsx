@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, User, Mail, Phone, CalendarClock, DollarSign, Bell, UserPlus } from 'lucide-react';
+import { Loader2, User, Mail, Phone, CalendarClock, Bell, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { addMonths, addYears } from 'date-fns';
 import type { Subscriber, SubscriberFormData } from '@/lib/types';
@@ -34,7 +34,6 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
     email: subscriber?.email || '',
     phone: subscriber?.phone || '',
     frequency: subscriber?.frequency || 'monthly',
-    monthly_rate: subscriber?.monthly_rate || 0,
     reminder_days_before: subscriber?.reminder_days_before || 7,
     referred_by: subscriber?.referred_by || '',
   });
@@ -57,7 +56,6 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
           email: formData.email || null,
           phone: formData.phone || null,
           frequency: formData.frequency,
-          monthly_rate: formData.monthly_rate,
           reminder_days_before: formData.reminder_days_before,
           subscription_end_date: subscriptionEndDate.toISOString(),
           status: 'active',
@@ -81,7 +79,6 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
             email: formData.email || null,
             phone: formData.phone || null,
             frequency: formData.frequency,
-            monthly_rate: formData.monthly_rate,
             reminder_days_before: formData.reminder_days_before,
             referred_by: formData.referred_by || null,
           })
@@ -95,7 +92,6 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
           email: formData.email,
           phone: formData.phone,
           frequency: formData.frequency,
-          monthly_rate: formData.monthly_rate,
         });
 
         toast.success('Subscriber updated successfully!');
@@ -237,33 +233,7 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
               </div>
             </div>
 
-            {/* Monthly Rate - Only shown in edit mode */}
-            {mode === 'edit' && (
-            <div className="space-y-2">
-              <Label htmlFor="monthly_rate" className="text-gray-700">
-                {formData.frequency === 'monthly' ? 'Monthly Rate' : 'Annual Rate'} *
-              </Label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                <Input
-                  id="monthly_rate"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="99.00"
-                  value={formData.monthly_rate || ''}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      monthly_rate: parseFloat(e.target.value) || 0,
-                    }))
-                  }
-                  required
-                  className="pl-10 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
-              </div>
-            </div>
-            )}
+
 
             {/* Reminder Days */}
             <div className="space-y-2">

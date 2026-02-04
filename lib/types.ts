@@ -97,7 +97,6 @@ export interface SubscriberFormData {
   email?: string;
   phone?: string;
   frequency: 'monthly' | 'annual';
-  monthly_rate: number;
   reminder_days_before: number;
   referred_by?: string;
 }

@@ -48,7 +48,7 @@ export async function exportData(
             Phone: sub.phone,
             Status: sub.status,
             Frequency: sub.frequency,
-            'Monthly Rate': sub.monthly_rate,
+
             'Reminder Days': sub.reminder_days_before,
             'Subscription End Date': formatDate(sub.subscription_end_date),
             'Created At': formatDate(sub.created_at),
@@ -60,7 +60,7 @@ export async function exportData(
           // Return headers even if empty
            subscribersCsv = jsonToCsv([{
             ID: '', 'Full Name': '', Email: '', Phone: '', Status: '', Frequency: '', 
-            'Monthly Rate': '', 'Reminder Days': '', 'Subscription End Date': '', 
+            'Reminder Days': '', 'Subscription End Date': '', 
             'Created At': '', 'Referred By': '', 'Status Notes': ''
            }]);
       }

@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { differenceInDays, startOfDay } from 'date-fns';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Phone } from 'lucide-react';
 import type { Subscriber } from '@/lib/types';
 
 interface Props {
@@ -16,6 +17,7 @@ interface Props {
 const ITEMS_PER_PAGE = 5;
 
 export function ExpiringSubscribersList({ subscribers }: Props) {
+  const router = useRouter();
   const [currentPage, setCurrentPage] = useState(1);
   
   const totalPages = Math.ceil(subscribers.length / ITEMS_PER_PAGE);
@@ -39,10 +41,10 @@ export function ExpiringSubscribersList({ subscribers }: Props) {
           startOfDay(new Date())
         );
         return (
-          <Link
+          <div
             key={sub.id}
-            href={`/subscribers/${sub.id}`}
-            className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors group"
+            onClick={() => router.push(`/subscribers/${sub.id}`)}
+            className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors group cursor-pointer"
           >
             <div className="flex items-center gap-3">
               <Avatar className="w-9 h-9 bg-amber-500">
@@ -51,9 +53,25 @@ export function ExpiringSubscribersList({ subscribers }: Props) {
                 </AvatarFallback>
               </Avatar>
               <div>
-                <p className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
-                  {sub.full_name}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-gray-900 group-hover:text-amber-600 transition-colors">
+                    {sub.full_name}
+                  </p>
+                  {sub.phone && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 w-auto px-2 text-green-600 border-green-200 hover:border-green-300 hover:bg-green-50 gap-1.5"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.location.href = `tel:${sub.phone}`;
+                      }}
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      <span>Call Now</span>
+                    </Button>
+                  )}
+                </div>
                 <p className="text-xs text-gray-500">{sub.email}</p>
               </div>
             </div>
@@ -68,7 +86,7 @@ export function ExpiringSubscribersList({ subscribers }: Props) {
               <Calendar className="w-3 h-3 mr-1" />
               {daysLeft} days
             </Badge>
-          </Link>
+          </div>
         );
       })}
 
