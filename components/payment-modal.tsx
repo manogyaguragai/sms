@@ -29,8 +29,10 @@ import {
 } from '@/components/ui/tooltip';
 import { Loader2, Upload, FileText, Image as ImageIcon, Calendar, ChevronLeft, ChevronRight, Check, Receipt, CreditCard, HelpCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { addMonths, addDays, format, startOfMonth } from 'date-fns';
+import { format, startOfMonth } from 'date-fns';
 import imageCompression from 'browser-image-compression';
+import NepaliDate from 'nepali-date-converter';
+import { NepaliDateTimePicker } from '@/components/nepali-datetime-picker';
 import type { Subscriber } from '@/lib/types';
 
 interface PaymentModalProps {
@@ -53,11 +55,7 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
   const [preview, setPreview] = useState<string | null>(null);
   const [receiptNumber, setReceiptNumber] = useState('');
   const [paymentMode, setPaymentMode] = useState<'online_transfer' | 'physical_transfer' | ''>('');
-  const [paymentDate, setPaymentDate] = useState(() => {
-    const now = new Date();
-    // Format as YYYY-MM-DDTHH:MM for datetime-local input
-    return format(now, "yyyy-MM-dd'T'HH:mm");
-  });
+  const [paymentDate, setPaymentDate] = useState<Date>(() => new Date());
 
   // Month/Year picker state (using Nepali year - Bikram Sambat)
   const currentDate = new Date();
@@ -209,22 +207,42 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
         payment_for_period: paymentForPeriod?.toISOString() || null,
         receipt_number: receiptNumber || null,
         payment_mode: paymentMode || null,
-        payment_date: new Date(paymentDate).toISOString(),
+        payment_date: paymentDate.toISOString(),
       });
 
       if (paymentError) throw paymentError;
 
-      // Update subscriber's subscription_end_date
-      // Add duration based on number of months selected (for monthly) or 365 days (for annual)
-      const currentEndDate = new Date(subscriber.subscription_end_date);
+      // Calculate new subscription end date based on payment period
+      // The subscription should be valid until the end of the last selected payment month
       let newEndDate: Date;
 
+      // Sort selected months to find the last one chronologically
+      const sorted = [...selectedMonths].sort((a, b) => {
+        if (a.year !== b.year) return a.year - b.year;
+        return a.month - b.month;
+      });
+      const lastPeriod = sorted[sorted.length - 1];
+
       if (subscriber.frequency === 'monthly') {
-        // Extend by number of months selected
-        newEndDate = addMonths(currentEndDate, selectedMonths.length);
+        // End date is the first day of the month AFTER the last selected month (in Nepali calendar)
+        // This means the subscription is valid through the entire last selected month
+        let endMonth = lastPeriod.month + 1; // Next month (0-indexed, so +1 gives us the next)
+        let endYear = lastPeriod.year;
+
+        // Handle year rollover (Chaitra is month 11, so month 12 means next year's Baisakh)
+        if (endMonth > 11) {
+          endMonth = 0; // Baisakh
+          endYear = endYear + 1;
+        }
+
+        // Create a Nepali date for the first day of the next month and convert to JS Date
+        const nepaliEndDate = new NepaliDate(endYear, endMonth, 1);
+        newEndDate = nepaliEndDate.toJsDate();
       } else {
-        // Annual: extend by 365 days
-        newEndDate = addDays(currentEndDate, 365);
+        // Annual: subscription valid for 1 year from the start of the selected period
+        // End date is the first day of the same month next year
+        const nepaliEndDate = new NepaliDate(lastPeriod.year + 1, lastPeriod.month, 1);
+        newEndDate = nepaliEndDate.toJsDate();
       }
 
       const { error: updateError } = await supabase
@@ -261,7 +279,7 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
       setPickerYear(currentBsYear);
       setReceiptNumber('');
       setPaymentMode('');
-      setPaymentDate(format(now, "yyyy-MM-dd'T'HH:mm"));
+      setPaymentDate(now);
       onClose();
     }
   };
@@ -405,18 +423,16 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
             </Select>
           </div>
 
-          {/* Payment Date */}
+          {/* Payment Date - Nepali Calendar */}
           <div className="space-y-2">
-            <Label htmlFor="paymentDate" className="text-gray-700 flex items-center gap-2">
+            <Label className="text-gray-700 flex items-center gap-2">
               <Calendar className="w-4 h-4" />
-              Payment Date
+              Payment Date (Nepali Calendar)
             </Label>
-            <Input
-              id="paymentDate"
-              type="datetime-local"
+            <NepaliDateTimePicker
               value={paymentDate}
-              onChange={(e) => setPaymentDate(e.target.value)}
-              className="bg-white border-gray-300 text-gray-900 focus:border-blue-500 focus:ring-blue-500"
+              onChange={setPaymentDate}
+              className="w-full"
             />
           </div>
 
