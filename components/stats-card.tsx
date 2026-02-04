@@ -1,6 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { LucideIcon } from 'lucide-react';
+import { LucideIcon, Info } from 'lucide-react';
 import Link from 'next/link';
 
 interface StatsCardProps {
@@ -17,6 +18,8 @@ interface StatsCardProps {
   iconClassName?: string;
   iconBgClassName?: string;
   href?: string;
+  tooltip?: string;
+  userCount?: number;
 }
 
 export function StatsCard({
@@ -30,6 +33,8 @@ export function StatsCard({
   iconClassName,
   iconBgClassName,
   href,
+  tooltip,
+  userCount,
 }: StatsCardProps) {
   const cardContent = (
     <Card className={cn(
@@ -41,10 +46,29 @@ export function StatsCard({
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
           <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-500">{title}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-medium text-gray-500">{title}</p>
+              {tooltip && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p>{tooltip}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
             <p className={cn("text-3xl font-bold text-gray-900", valueClassName)}>{value}</p>
-            {subtitle && (
-              <p className="text-xs text-gray-500">{subtitle}</p>
+            {(subtitle || userCount !== undefined) && (
+              <div className="space-y-0.5">
+                {subtitle && (
+                  <p className="text-xs text-gray-500">{subtitle}</p>
+                )}
+                {userCount !== undefined && (
+                  <p className="text-xs text-blue-600 font-medium">({userCount} users)</p>
+                )}
+              </div>
             )}
             {trend && (
               <div className={cn(
@@ -71,3 +95,4 @@ export function StatsCard({
 
   return cardContent;
 }
+
