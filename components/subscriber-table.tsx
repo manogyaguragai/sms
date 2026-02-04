@@ -184,29 +184,29 @@ export function SubscriberTable({
 
   return (
     <>
-      {/* Filters and Search Row */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        {/* Search */}
-        <div className="relative flex-1 max-w-sm">
+      {/* Mobile-Optimized Filters and Search */}
+      <div className="space-y-3 mb-6">
+        {/* Search - Full width */}
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <Input
             placeholder="Search by name or email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-blue-600"
+            className="pl-10 h-11 bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-blue-600"
           />
         </div>
 
-        {/* Filters */}
-        <div className="flex gap-2 items-center">
-          <Filter className="w-4 h-4 text-gray-500" />
+        {/* Filters - Grid layout for mobile */}
+        <div className="flex flex-wrap gap-2 items-center">
+          <Filter className="w-4 h-4 text-gray-500 hidden sm:block" />
 
           {/* Status Filter */}
           <Select
             value={currentStatus || 'all'}
             onValueChange={(value) => updateParams({ status: value === 'all' ? '' : value, page: '1' })}
           >
-            <SelectTrigger className="w-[140px] bg-white border-gray-200 text-gray-900">
+            <SelectTrigger className="w-full sm:w-[130px] h-10 bg-white border-gray-200 text-gray-900 text-sm">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent className="bg-white border-gray-200">
@@ -223,7 +223,7 @@ export function SubscriberTable({
             value={currentFrequency || 'all'}
             onValueChange={(value) => updateParams({ frequency: value === 'all' ? '' : value, page: '1' })}
           >
-            <SelectTrigger className="w-[140px] bg-white border-gray-200 text-gray-900">
+            <SelectTrigger className="w-full sm:w-[130px] h-10 bg-white border-gray-200 text-gray-900 text-sm">
               <SelectValue placeholder="Frequency" />
             </SelectTrigger>
             <SelectContent className="bg-white border-gray-200">
@@ -233,12 +233,12 @@ export function SubscriberTable({
             </SelectContent>
           </Select>
 
-          {/* Results Per Page */}
+          {/* Results Per Page - Hidden on mobile */}
           <Select
             value={String(pageSize)}
             onValueChange={(value) => updateParams({ pageSize: value, page: '1' })}
           >
-            <SelectTrigger className="w-[100px] bg-white border-gray-200 text-gray-900">
+            <SelectTrigger className="hidden sm:flex w-[100px] h-10 bg-white border-gray-200 text-gray-900 text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="bg-white border-gray-200">
@@ -250,8 +250,84 @@ export function SubscriberTable({
         </div>
       </div>
 
-      {/* Table */}
-      <div className="rounded-lg border border-gray-200 overflow-hidden">
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {subscribers.length === 0 ? (
+          <div className="text-center py-8 text-gray-500 bg-white rounded-lg border border-gray-200">
+            {currentSearch || currentStatus || currentFrequency
+              ? 'No subscribers found matching your filters'
+              : 'No subscribers yet'}
+          </div>
+        ) : (
+          subscribers.map((subscriber) => {
+            const days = differenceInDays(startOfDay(new Date(subscriber.subscription_end_date)), startOfDay(new Date()));
+            return (
+              <div
+                key={subscriber.id}
+                onClick={() => router.push(`/subscribers/${subscriber.id}`)}
+                className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm active:bg-gray-50 transition-colors cursor-pointer"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-medium text-gray-900 truncate">{subscriber.full_name}</h3>
+                      {subscriber.status === 'inactive' && subscriber.status_notes && (
+                        <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-500 truncate">{subscriber.email || subscriber.phone || 'No contact'}</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    {getStatusBadge(subscriber.status)}
+                    <span className={`text-xs font-medium ${days < 0 ? 'text-red-600' : days <= 7 ? 'text-amber-500' : 'text-gray-500'
+                      }`}>
+                      {days < 0 ? 'Expired' : days === 0 ? 'Today' : `${days}d left`}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-gray-600">Rs. {Number(subscriber.monthly_rate).toFixed(0)}</span>
+                    <Badge variant="outline" className="border-gray-200 text-gray-500 text-xs capitalize">
+                      {subscriber.frequency}
+                    </Badge>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                      <Button variant="ghost" className="h-8 w-8 p-0 text-gray-400">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="bg-white border-gray-200 text-gray-900">
+                      <DropdownMenuItem className="text-gray-700 focus:text-gray-900 focus:bg-gray-100" asChild>
+                        <Link href={`/subscribers/${subscriber.id}`}>
+                          <Eye className="mr-2 h-4 w-4" />
+                          View Details
+                        </Link>
+                      </DropdownMenuItem>
+                      {canDelete && (
+                        <DropdownMenuItem
+                          className="text-red-600 focus:text-red-700 focus:bg-red-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteId(subscriber.id);
+                          }}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Desktop Table - Hidden on mobile */}
+      <div className="hidden md:block rounded-lg border border-gray-200 overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50 hover:bg-gray-50 border-gray-200">

@@ -17,6 +17,15 @@ export const metadata: Metadata = {
   description: "Private subscription management system for organizations",
 };
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover' as const,
+  themeColor: '#ffffff',
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

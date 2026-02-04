@@ -151,9 +151,9 @@ export function Sidebar() {
   return (
     <>
       {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200 px-4 py-3 flex items-center justify-between safe-area-inset-top">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+          <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center shadow-sm">
             <CreditCard className="w-4 h-4 text-white" />
           </div>
           <span className="font-bold text-gray-900">SubTrack</span>
@@ -161,24 +161,26 @@ export function Sidebar() {
         <Button
           variant="ghost"
           size="icon"
-          className="text-gray-500"
+          className="text-gray-500 h-10 w-10 touch-target"
           onClick={() => setMobileOpen(!mobileOpen)}
         >
           {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </Button>
       </div>
 
-      {/* Mobile sidebar */}
-      {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-30 bg-black/50" onClick={() => setMobileOpen(false)}>
-          <div
-            className="fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200 flex flex-col pt-16"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <SidebarContent />
-          </div>
+      {/* Mobile sidebar overlay */}
+      <div 
+        className={`lg:hidden fixed inset-0 z-30 transition-opacity duration-300 ${mobileOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        onClick={() => setMobileOpen(false)}
+      >
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+        <div
+          className={`fixed inset-y-0 left-0 w-72 bg-white border-r border-gray-200 flex flex-col pt-16 shadow-xl transform transition-transform duration-300 ease-out ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <SidebarContent />
         </div>
-      )}
+      </div>
 
       {/* Desktop sidebar */}
       <div className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-white border-r border-gray-200">

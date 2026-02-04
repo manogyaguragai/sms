@@ -168,7 +168,7 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
   };
 
   return (
-    <div className="p-6 lg:p-8 space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
       {/* Back Button */}
       <Button
         variant="ghost"
@@ -182,9 +182,9 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
       </Button>
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+      <div className="flex flex-col gap-4">
         <div className="flex items-center gap-4">
-          <Avatar className="w-16 h-16 bg-blue-600 text-xl shadow-lg ring-4 ring-white">
+          <Avatar className="w-14 h-14 md:w-16 md:h-16 bg-blue-600 text-lg md:text-xl shadow-lg ring-4 ring-white">
             <AvatarFallback className="bg-transparent text-white">
               {subscriber.full_name
                 .split(' ')
@@ -193,17 +193,17 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
                 .slice(0, 2)}
             </AvatarFallback>
           </Avatar>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900 truncate">
               {subscriber.full_name}
-              {subscriber.referred_by && (
-                <span className="text-base font-normal text-gray-500 ml-2">
-                  (Referred by {subscriber.referred_by})
-                </span>
-              )}
             </h1>
-            <p className="text-gray-500">{subscriber.phone || 'No phone'}</p>
-            <div className="flex items-center gap-2 mt-2">
+            {subscriber.referred_by && (
+              <p className="text-sm text-gray-500 truncate">
+                Referred by {subscriber.referred_by}
+              </p>
+            )}
+            <p className="text-gray-500 text-sm">{subscriber.phone || 'No phone'}</p>
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
               {getStatusBadge(subscriber.status)}
               <Badge variant="outline" className="border-gray-200 text-gray-600 capitalize">
                 {subscriber.frequency}
@@ -211,27 +211,30 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
+
+        {/* Action buttons - Full width on mobile */}
+        <div className="grid grid-cols-2 sm:flex gap-2">
           <Button
             variant="outline"
             onClick={handleToggleStatus}
             disabled={togglingStatus}
-            className="border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            className="border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-10"
           >
              {togglingStatus ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Power className="w-4 h-4 mr-2" />}
-             {subscriber.status === 'active' ? 'Deactivate' : 'Activate'}
+            <span className="hidden sm:inline">{subscriber.status === 'active' ? 'Deactivate' : 'Activate'}</span>
+            <span className="sm:hidden">{subscriber.status === 'active' ? 'Off' : 'On'}</span>
           </Button>
           <Button
             variant="outline"
             onClick={() => setShowEditModal(true)}
-            className="border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            className="border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-10"
           >
             <Edit className="w-4 h-4 mr-2" />
             Edit
           </Button>
           <Button
             onClick={() => setShowPaymentModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="bg-blue-600 hover:bg-blue-700 text-white h-10 col-span-2 sm:col-span-1"
           >
             <CreditCard className="w-4 h-4 mr-2" />
             Record Payment
