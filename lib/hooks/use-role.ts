@@ -21,6 +21,7 @@ const PERMISSIONS = {
   DELETE_SUBSCRIBER: ['super_admin', 'admin'] as UserRole[],
   VIEW_PAYMENTS: ['super_admin', 'admin', 'staff'] as UserRole[],
   CREATE_PAYMENT: ['super_admin', 'admin', 'staff'] as UserRole[],
+  UPDATE_PAYMENT: ['super_admin', 'admin'] as UserRole[],
   DELETE_PAYMENT: ['super_admin', 'admin'] as UserRole[],
   VIEW_USERS: ['super_admin', 'admin'] as UserRole[],
   CREATE_USER: ['super_admin', 'admin'] as UserRole[],

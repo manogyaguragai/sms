@@ -190,6 +190,23 @@ export async function logPaymentDeleted(
 }
 
 /**
+ * Log payment update
+ */
+export async function logPaymentUpdated(
+  paymentId: string,
+  subscriberName: string,
+  changes: Record<string, unknown>
+): Promise<void> {
+  await logActivity({
+    actionType: 'PAYMENT_UPDATED',
+    description: `Updated payment for ${subscriberName}`,
+    targetTable: 'payments',
+    targetId: paymentId,
+    metadata: { subscriber_name: subscriberName, changes },
+  });
+}
+
+/**
  * Log data export
  */
 export async function logDataExported(

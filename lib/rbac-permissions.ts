@@ -14,6 +14,7 @@ export const PERMISSIONS = {
   // Payment operations
   VIEW_PAYMENTS: ['super_admin', 'admin', 'staff'] as UserRole[],
   CREATE_PAYMENT: ['super_admin', 'admin', 'staff'] as UserRole[],
+  UPDATE_PAYMENT: ['super_admin', 'admin'] as UserRole[],
   DELETE_PAYMENT: ['super_admin', 'admin'] as UserRole[],
 
   // User management

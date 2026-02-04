@@ -38,6 +38,8 @@ import {
   ToggleLeft,
   ToggleRight,
   Power,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { differenceInDays, subMonths, subYears, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
@@ -68,6 +70,16 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
   const [newEndDate, setNewEndDate] = useState(() => toNepaliDateString(subscriber.subscription_end_date));
   const [updatingDate, setUpdatingDate] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
+
+  // Pagination state for payment history
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(5);
+
+  // Paginated payments
+  const totalPages = Math.ceil(payments.length / recordsPerPage);
+  const startIndex = (currentPage - 1) * recordsPerPage;
+  const endIndex = startIndex + recordsPerPage;
+  const paginatedPayments = payments.slice(startIndex, endIndex);
 
   // Derived calculations - normalize to start of day for accurate day comparison
   const today = startOfDay(new Date());
@@ -381,10 +393,34 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
         {/* Payment History */}
         <Card className="bg-white border-gray-200 shadow-sm lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-gray-900 text-lg flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-emerald-600" />
-              Payment History
-            </CardTitle>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <CardTitle className="text-gray-900 text-lg flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-emerald-600" />
+                Payment History
+                {payments.length > 0 && (
+                  <span className="text-sm font-normal text-gray-500">
+                    ({payments.length} total)
+                  </span>
+                )}
+              </CardTitle>
+              {payments.length > 0 && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-gray-500">Show:</span>
+                  <select
+                    value={recordsPerPage}
+                    onChange={(e) => {
+                      setRecordsPerPage(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="border border-gray-200 rounded-md px-2 py-1 text-sm bg-white text-gray-700"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                  </select>
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {payments.length === 0 ? (
@@ -402,7 +438,7 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
               </div>
             ) : (
               <div className="space-y-3">
-                {payments.map((payment) => (
+                  {paginatedPayments.map((payment) => (
                   <div
                     key={payment.id}
                     onClick={() => {
@@ -450,6 +486,38 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
                     </div>
                   </div>
                 ))}
+
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                      <p className="text-sm text-gray-500">
+                        Showing {startIndex + 1}-{Math.min(endIndex, payments.length)} of {payments.length}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          className="h-8 px-2"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </Button>
+                        <span className="text-sm text-gray-600 px-2">
+                          Page {currentPage} of {totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          disabled={currentPage === totalPages}
+                          className="h-8 px-2"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
               </div>
             )}
           </CardContent>
