@@ -47,6 +47,7 @@ import { SubscriberForm } from '@/components/subscriber-form';
 import type { Subscriber, Payment } from '@/lib/types';
 import { updateSubscriptionDate, toggleSubscriberStatus } from '@/app/actions/subscriber';
 import { formatNepaliDate, formatNepaliDateTime, toNepaliDateString, fromNepaliDateString, NEPALI_MONTHS } from '@/lib/nepali-date';
+import { PaymentPeriodCalendar } from '@/components/payment-period-calendar';
 
 interface SubscriberProfileProps {
   subscriber: Subscriber;
@@ -186,8 +187,8 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
 
       {/* Header */}
       <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-4">
-          <Avatar className="w-14 h-14 md:w-16 md:h-16 bg-blue-600 text-lg md:text-xl shadow-lg ring-4 ring-white">
+        <div className="flex items-start gap-4 flex-wrap">
+          <Avatar className="w-14 h-14 md:w-16 md:h-16 bg-blue-600 text-lg md:text-xl shadow-lg ring-4 ring-white shrink-0">
             <AvatarFallback className="bg-transparent text-white">
               {subscriber.full_name
                 .split(' ')
@@ -196,7 +197,7 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
                 .slice(0, 2)}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0">
             <h1 className="text-xl md:text-2xl font-bold text-gray-900 truncate">
               {subscriber.full_name}
             </h1>
@@ -212,6 +213,13 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
                 {subscriber.frequency}
               </Badge>
             </div>
+          </div>
+
+          {/* Payment Period Calendar - closer to name */}
+          <div className="hidden md:block ml-16" style={{ width: '270px' }}>
+            <PaymentPeriodCalendar
+              payments={payments}
+            />
           </div>
         </div>
 
@@ -247,9 +255,7 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-
-
-        {/* Expires Card with details */}
+        {/* Subscription Status Card */}
         <Card className="bg-white border-gray-200 shadow-sm col-span-1 lg:col-span-2">
           <CardContent className="p-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -283,9 +289,9 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
                     )}
                   </p>
                   <Separator orientation="vertical" className="h-4 bg-gray-200" />
-                   <p className="text-sm text-gray-500">
-                     {daysConsumed > 0 ? daysConsumed : 0} days consumed
-                   </p>
+                  <p className="text-sm text-gray-500">
+                    {daysConsumed > 0 ? daysConsumed : 0} days consumed
+                  </p>
                 </div>
               </div>
             </div>
@@ -296,7 +302,7 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
         </Card>
 
         {/* Last Paid Date */}
-         <Card className="bg-white border-gray-200 shadow-sm">
+        <Card className="bg-white border-gray-200 shadow-sm">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center">
               <Calendar className="w-5 h-5 text-emerald-600" />

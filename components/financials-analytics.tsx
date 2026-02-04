@@ -47,9 +47,17 @@ export function FinancialsAnalytics({ subscribers, payments }: FinancialsAnalyti
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   
+  // Helper to format date as local YYYY-MM-DD (avoids UTC timezone issues)
+  const toLocalDateString = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const [dateRange, setDateRange] = useState<DateRange>({
-    startDate: startOfMonth.toISOString().split('T')[0],
-    endDate: now.toISOString().split('T')[0],
+    startDate: toLocalDateString(startOfMonth),
+    endDate: toLocalDateString(now),
   });
   
   // Default to first subscriber
@@ -57,11 +65,15 @@ export function FinancialsAnalytics({ subscribers, payments }: FinancialsAnalyti
   const [userSearch, setUserSearch] = useState('');
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
+  // Toggle for grouping by month or year
+  const [groupBy, setGroupBy] = useState<'month' | 'year'>('month');
+
   // Filter payments by date range
   const filteredPayments = useMemo(() => {
     const start = new Date(dateRange.startDate);
+    start.setHours(0, 0, 0, 0); // Include full start day (inclusive)
     const end = new Date(dateRange.endDate);
-    end.setHours(23, 59, 59, 999); // Include full end day
+    end.setHours(23, 59, 59, 999); // Include full end day (inclusive)
     
     return payments.filter(p => {
       const paymentDate = new Date(p.payment_date);
@@ -91,35 +103,70 @@ export function FinancialsAnalytics({ subscribers, payments }: FinancialsAnalyti
     return subscribers.filter(s => s.full_name.toLowerCase().includes(search));
   }, [subscribers, userSearch]);
 
-  // Get user payments by month for chart
+  // Get user payments grouped by month or year for chart
   const userPaymentData = useMemo(() => {
     if (!selectedUserId) return [];
     
     const userPayments = filteredPayments.filter(p => p.subscriber_id === selectedUserId);
     
-    // Group by month
-    const monthlyData = new Map<string, number>();
+    // Group by month or year based on toggle
+    const groupedData = new Map<string, { sortKey: string; amount: number }>();
     
     userPayments.forEach(p => {
       const date = new Date(p.payment_date);
       try {
         const nepaliDate = new NepaliDate(date);
-        const monthKey = `${NEPALI_MONTHS_SHORT[nepaliDate.getMonth()]} ${nepaliDate.getYear()}`;
-        const existing = monthlyData.get(monthKey) || 0;
-        monthlyData.set(monthKey, existing + Number(p.amount_paid));
+        const month = NEPALI_MONTHS_SHORT[nepaliDate.getMonth()];
+        const year = nepaliDate.getYear();
+
+        let key: string;
+        let sortKey: string;
+
+        if (groupBy === 'year') {
+          key = `${year}`;
+          sortKey = `${year}`;
+        } else {
+          key = `${month} ${year}`;
+          sortKey = `${year}-${String(nepaliDate.getMonth() + 1).padStart(2, '0')}`;
+        }
+
+        const existing = groupedData.get(key);
+        groupedData.set(key, {
+          sortKey,
+          amount: (existing?.amount || 0) + Number(p.amount_paid),
+        });
       } catch {
         // Fallback to English date if Nepali conversion fails
-        const monthKey = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
-        const existing = monthlyData.get(monthKey) || 0;
-        monthlyData.set(monthKey, existing + Number(p.amount_paid));
+        const month = date.toLocaleString('default', { month: 'short' });
+        const year = date.getFullYear();
+
+        let key: string;
+        let sortKey: string;
+
+        if (groupBy === 'year') {
+          key = `${year}`;
+          sortKey = `${year}`;
+        } else {
+          key = `${month} ${year}`;
+          sortKey = `${year}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        }
+
+        const existing = groupedData.get(key);
+        groupedData.set(key, {
+          sortKey,
+          amount: (existing?.amount || 0) + Number(p.amount_paid),
+        });
       }
     });
     
-    return Array.from(monthlyData.entries()).map(([month, amount]) => ({
-      month,
-      amount,
-    }));
-  }, [selectedUserId, filteredPayments]);
+    return Array.from(groupedData.entries())
+      .map(([period, data]) => ({
+        period,
+        amount: data.amount,
+        sortKey: data.sortKey,
+      }))
+      .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+  }, [selectedUserId, filteredPayments, groupBy]);
 
   // Calculate top subscribers by total payments in date range
   const topSubscribers = useMemo(() => {
@@ -212,9 +259,31 @@ export function FinancialsAnalytics({ subscribers, payments }: FinancialsAnalyti
       {/* Line Chart */}
       <Card className="bg-white border-gray-200 shadow-sm">
         <CardHeader className="pb-2">
-          <CardTitle className="text-gray-900 text-base">
-            Payment History: {selectedUser?.full_name || 'No user selected'}
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-gray-900 text-base">
+              Payment History: {selectedUser?.full_name || 'No user selected'}
+            </CardTitle>
+            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+              <button
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${groupBy === 'month'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                onClick={() => setGroupBy('month')}
+              >
+                Monthly
+              </button>
+              <button
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${groupBy === 'year'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                onClick={() => setGroupBy('year')}
+              >
+                Yearly
+              </button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {selectedUserId ? (
@@ -224,7 +293,7 @@ export function FinancialsAnalytics({ subscribers, payments }: FinancialsAnalyti
                   <LineChart data={userPaymentData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
                     <XAxis 
-                      dataKey="month" 
+                      dataKey="period" 
                       stroke="#6b7280" 
                       fontSize={12} 
                       tickLine={false} 

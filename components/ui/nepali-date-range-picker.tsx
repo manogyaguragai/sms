@@ -72,24 +72,32 @@ export function NepaliDateRangePicker({ value, onChange, className }: NepaliDate
   };
 
   // Date selection handlers
+  // Helper to format date as local YYYY-MM-DD (avoids UTC timezone issues)
+  const toLocalDateString = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const handleDateSelect = (day: number) => {
     try {
       const nepaliDate = new NepaliDate(viewYear, viewMonth, day);
       const jsDate = nepaliDate.toJsDate();
-      const isoDate = jsDate.toISOString().split('T')[0];
+      const localDate = toLocalDateString(jsDate);
 
       if (!selectingEnd) {
         // Setting start date
-        onChange({ startDate: isoDate, endDate: isoDate });
+        onChange({ startDate: localDate, endDate: localDate });
         setSelectingEnd(true);
       } else {
         // Setting end date
         const startJsDate = new Date(value.startDate);
         if (jsDate >= startJsDate) {
-          onChange({ ...value, endDate: isoDate });
+          onChange({ ...value, endDate: localDate });
         } else {
           // If end is before start, swap them
-          onChange({ startDate: isoDate, endDate: value.startDate });
+          onChange({ startDate: localDate, endDate: value.startDate });
         }
         setSelectingEnd(false);
         setOpen(false);
@@ -121,8 +129,8 @@ export function NepaliDateRangePicker({ value, onChange, className }: NepaliDate
     }
 
     onChange({
-      startDate: startDate.toISOString().split('T')[0],
-      endDate: endDate.toISOString().split('T')[0],
+      startDate: toLocalDateString(startDate),
+      endDate: toLocalDateString(endDate),
     });
     setOpen(false);
   };
