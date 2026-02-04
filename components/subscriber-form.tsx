@@ -237,7 +237,8 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
               </div>
             </div>
 
-            {/* Monthly Rate */}
+            {/* Monthly Rate - Only shown in edit mode */}
+            {mode === 'edit' && (
             <div className="space-y-2">
               <Label htmlFor="monthly_rate" className="text-gray-700">
                 {formData.frequency === 'monthly' ? 'Monthly Rate' : 'Annual Rate'} *
@@ -262,6 +263,7 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
                 />
               </div>
             </div>
+            )}
 
             {/* Reminder Days */}
             <div className="space-y-2">
