@@ -186,70 +186,74 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
       </Button>
 
       {/* Header */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-start gap-4 flex-wrap">
-          <Avatar className="w-14 h-14 md:w-16 md:h-16 bg-blue-600 text-lg md:text-xl shadow-lg ring-4 ring-white shrink-0">
-            <AvatarFallback className="bg-transparent text-white">
-              {subscriber.full_name
-                .split(' ')
-                .map((n) => n[0])
-                .join('')
-                .slice(0, 2)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0">
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900 truncate">
-              {subscriber.full_name}
-            </h1>
-            {subscriber.referred_by && (
-              <p className="text-sm text-gray-500 truncate">
-                Referred by {subscriber.referred_by}
-              </p>
-            )}
-            <p className="text-gray-500 text-sm">{subscriber.phone || 'No phone'}</p>
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              {getStatusBadge(subscriber.status)}
-              <Badge variant="outline" className="border-gray-200 text-gray-600 capitalize">
-                {subscriber.frequency}
-              </Badge>
+      <div className="flex items-stretch gap-12">
+        {/* Left side - Name, badges, and buttons */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-start gap-4 flex-wrap">
+            <Avatar className="w-14 h-14 md:w-16 md:h-16 bg-blue-600 text-lg md:text-xl shadow-lg ring-4 ring-white shrink-0">
+              <AvatarFallback className="bg-transparent text-white">
+                {subscriber.full_name
+                  .split(' ')
+                  .map((n) => n[0])
+                  .join('')
+                  .slice(0, 2)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <h1 className="text-xl md:text-2xl font-bold text-gray-900 truncate">
+                {subscriber.full_name}
+              </h1>
+              {subscriber.referred_by && (
+                <p className="text-sm text-gray-500 truncate">
+                  Referred by {subscriber.referred_by}
+                </p>
+              )}
+              <p className="text-gray-500 text-sm">{subscriber.phone || 'No phone'}</p>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {getStatusBadge(subscriber.status)}
+                <Badge variant="outline" className="border-gray-200 text-gray-600 capitalize">
+                  {subscriber.frequency}
+                </Badge>
+              </div>
             </div>
           </div>
 
-          {/* Payment Period Calendar - closer to name */}
-          <div className="hidden md:block ml-16" style={{ width: '270px' }}>
-            <PaymentPeriodCalendar
-              payments={payments}
-            />
+          {/* Action buttons - Full width on mobile */}
+          <div className="grid grid-cols-2 sm:flex gap-2 mt-1">
+            <Button
+              variant="outline"
+              onClick={handleToggleStatus}
+              disabled={togglingStatus}
+              className="border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-10"
+            >
+              {togglingStatus ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Power className="w-4 h-4 mr-2" />}
+              <span className="hidden sm:inline">{subscriber.status === 'active' ? 'Deactivate' : 'Activate'}</span>
+              <span className="sm:hidden">{subscriber.status === 'active' ? 'Off' : 'On'}</span>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowEditModal(true)}
+              className="border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-10"
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              Edit
+            </Button>
+            <Button
+              onClick={() => setShowPaymentModal(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white h-10 col-span-2 sm:col-span-1"
+            >
+              <CreditCard className="w-4 h-4 mr-2" />
+              Record Payment
+            </Button>
           </div>
         </div>
 
-        {/* Action buttons - Full width on mobile */}
-        <div className="grid grid-cols-2 sm:flex gap-2">
-          <Button
-            variant="outline"
-            onClick={handleToggleStatus}
-            disabled={togglingStatus}
-            className="border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-10"
-          >
-             {togglingStatus ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Power className="w-4 h-4 mr-2" />}
-            <span className="hidden sm:inline">{subscriber.status === 'active' ? 'Deactivate' : 'Activate'}</span>
-            <span className="sm:hidden">{subscriber.status === 'active' ? 'Off' : 'On'}</span>
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setShowEditModal(true)}
-            className="border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-10"
-          >
-            <Edit className="w-4 h-4 mr-2" />
-            Edit
-          </Button>
-          <Button
-            onClick={() => setShowPaymentModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white h-10 col-span-2 sm:col-span-1"
-          >
-            <CreditCard className="w-4 h-4 mr-2" />
-            Record Payment
-          </Button>
+        {/* Payment Period Calendar - positioned after buttons with gap */}
+        <div className="hidden md:flex items-stretch" style={{ width: '220px' }}>
+          <PaymentPeriodCalendar
+            payments={payments}
+            className="w-full h-full"
+          />
         </div>
       </div>
 
