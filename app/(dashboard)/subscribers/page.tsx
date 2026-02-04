@@ -1,4 +1,4 @@
-import { getSubscribersPaginated } from '@/app/actions/subscribers';
+import { getSubscribersPaginated, type SortColumn, type SortOrder } from '@/app/actions/subscribers';
 import { SubscriberTable } from '@/components/subscriber-table';
 import { Button } from '@/components/ui/button';
 import { UserPlus, Users } from 'lucide-react';
@@ -11,6 +11,8 @@ interface PageProps {
     search?: string;
     status?: string;
     frequency?: string;
+    sortBy?: string;
+    sortOrder?: string;
   }>;
 }
 
@@ -22,6 +24,8 @@ export default async function SubscribersPage({ searchParams }: PageProps) {
   const search = params.search || '';
   const status = params.status || '';
   const frequency = params.frequency || '';
+  const sortBy = (params.sortBy as SortColumn) || 'subscription_end_date';
+  const sortOrder = (params.sortOrder as SortOrder) || 'asc';
 
   const result = await getSubscribersPaginated({
     page,
@@ -29,6 +33,8 @@ export default async function SubscribersPage({ searchParams }: PageProps) {
     search,
     status,
     frequency,
+    sortBy,
+    sortOrder,
   });
 
   return (
@@ -62,6 +68,8 @@ export default async function SubscribersPage({ searchParams }: PageProps) {
         currentSearch={search}
         currentStatus={status}
         currentFrequency={frequency}
+        currentSortBy={sortBy}
+        currentSortOrder={sortOrder}
       />
     </div>
   );

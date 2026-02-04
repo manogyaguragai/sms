@@ -1,13 +1,13 @@
 import { createClient } from '@/lib/supabase/server';
 import { StatsCard } from '@/components/stats-card';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { DollarSign, Users, AlertTriangle, Receipt, Calendar, ArrowRight } from 'lucide-react';
-import { format, differenceInDays, addDays, startOfDay } from 'date-fns';
+import { DollarSign, Users, AlertTriangle, Receipt, ArrowRight } from 'lucide-react';
+import { format, addDays } from 'date-fns';
 import Link from 'next/link';
 import type { Subscriber, PaymentWithSubscriber } from '@/lib/types';
 import { DashboardCharts } from '@/components/dashboard-charts';
+import { ExpiringSubscribersList } from '@/components/expiring-subscribers-list';
 
 async function getDashboardData() {
   const supabase = await createClient();
@@ -26,8 +26,7 @@ async function getDashboardData() {
     .eq('status', 'active')
     .lte('subscription_end_date', tenDaysFromNow)
     .gte('subscription_end_date', new Date().toISOString())
-    .order('subscription_end_date', { ascending: true })
-    .limit(10);
+    .order('subscription_end_date', { ascending: true });
 
   // Get all payments for total revenue calculation
   const { data: allPayments } = await supabase
@@ -59,14 +58,21 @@ async function getDashboardData() {
     });
   }
 
+  // Aggregate payments by day for chart
+  const paymentsByDay = new Map<string, number>();
+  (recentPayments || []).forEach(p => {
+    const dateKey = format(new Date(p.payment_date), 'MMM d');
+    paymentsByDay.set(dateKey, (paymentsByDay.get(dateKey) || 0) + Number(p.amount_paid));
+  });
+
   const chartData = {
-    payments: (recentPayments || [])
+    payments: Array.from(paymentsByDay.entries())
       .slice(0, 7)
       .reverse()
-      .map(p => ({
-        date: format(new Date(p.payment_date), 'MMM d'),
-        amount: Number(p.amount_paid),
-        name: p.subscribers?.full_name || 'Unknown'
+      .map(([date, amount]) => ({
+        date,
+        amount,
+        name: 'Daily Total'
       })),
     plans: [
       { name: 'Monthly', value: planCounts.monthly },
@@ -147,102 +153,54 @@ export default async function DashboardPage() {
               View all <ArrowRight className="w-4 h-4" />
             </Link>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {expiringSoon.length === 0 ? (
-              <p className="text-gray-500 text-sm py-4 text-center">
-                No subscriptions expiring soon
-              </p>
-            ) : (
-              expiringSoon.map((sub) => {
-                const daysLeft = differenceInDays(
-                  startOfDay(new Date(sub.subscription_end_date)),
-                  startOfDay(new Date())
-                );
-                return (
-                  <Link
-                    key={sub.id}
-                    href={`/subscribers/${sub.id}`}
-                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Avatar className="w-9 h-9 bg-amber-500">
-                        <AvatarFallback className="bg-transparent text-white text-sm">
-                          {sub.full_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
-                          {sub.full_name}
-                        </p>
-                        <p className="text-xs text-gray-500">{sub.email}</p>
-                      </div>
-                    </div>
-                    <Badge
-                      variant="outline"
-                      className={`${
-                        daysLeft <= 3
-                          ? 'border-red-200 text-red-600 bg-red-50'
-                          : 'border-amber-200 text-amber-600 bg-amber-50'
-                      }`}
-                    >
-                      <Calendar className="w-3 h-3 mr-1" />
-                      {daysLeft} days
-                    </Badge>
-                  </Link>
-                );
-              })
-            )}
+          <CardContent>
+            <ExpiringSubscribersList subscribers={expiringSoon} />
           </CardContent>
         </Card>
 
-        {/* Total Revenue Summary */}
+        {/* Recent Payments */}
         <Card className="bg-white border-gray-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
               <Receipt className="w-5 h-5 text-green-500" />
-              Revenue Summary
+              Recent Payments
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-4 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200">
-              <p className="text-sm text-green-600 font-medium">Total Revenue Collected</p>
-              <p className="text-3xl font-bold text-green-700 mt-1">Rs. {totalRevenue.toFixed(2)}</p>
-              <p className="text-xs text-green-600 mt-2">From all {recentPayments.length > 0 ? 'payments' : 'time'}</p>
-            </div>
-
-            {recentPayments.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-gray-700">Latest Payments</p>
-                {recentPayments.slice(0, 5).map((payment) => (
-                  <div
-                    key={payment.id}
-                    className="flex items-center justify-between p-2 rounded-lg bg-gray-50"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Avatar className="w-7 h-7 bg-green-500">
-                        <AvatarFallback className="bg-transparent text-white text-xs">
-                          {payment.subscribers?.full_name
-                            ?.split(' ')
-                            .map((n) => n[0])
-                            .join('')
-                            .slice(0, 2) || '??'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {payment.subscribers?.full_name || 'Unknown'}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {format(new Date(payment.payment_date), 'MMM d')}
-                        </p>
-                      </div>
+          <CardContent className="space-y-2">
+            {recentPayments.length === 0 ? (
+              <p className="text-gray-500 text-sm py-4 text-center">
+                No payments recorded yet
+              </p>
+            ) : (
+              recentPayments.slice(0, 10).map((payment) => (
+                <div
+                  key={payment.id}
+                  className="flex items-center justify-between p-2 rounded-lg bg-gray-50"
+                >
+                  <div className="flex items-center gap-2">
+                    <Avatar className="w-7 h-7 bg-green-500">
+                      <AvatarFallback className="bg-transparent text-white text-xs">
+                        {payment.subscribers?.full_name
+                          ?.split(' ')
+                          .map((n) => n[0])
+                          .join('')
+                          .slice(0, 2) || '??'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {payment.subscribers?.full_name || 'Unknown'}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {format(new Date(payment.payment_date), 'MMM d')}
+                      </p>
                     </div>
-                    <p className="text-sm font-semibold text-green-600">
-                      +Rs. {Number(payment.amount_paid).toFixed(2)}
-                    </p>
                   </div>
-                ))}
-              </div>
+                  <p className="text-sm font-semibold text-green-600">
+                    +Rs. {Number(payment.amount_paid).toFixed(2)}
+                  </p>
+                </div>
+              ))
             )}
           </CardContent>
         </Card>

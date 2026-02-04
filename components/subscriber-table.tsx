@@ -43,11 +43,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { MoreHorizontal, Eye, Trash2, Search, Loader2, AlertCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter } from 'lucide-react';
+import { MoreHorizontal, Eye, Trash2, Search, Loader2, AlertCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { format, differenceInDays, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
 import { formatNepaliDate } from '@/lib/nepali-date';
 import type { Subscriber } from '@/lib/types';
+import type { SortColumn, SortOrder } from '@/app/actions/subscribers';
 
 interface SubscriberTableProps {
   subscribers: Subscriber[];
@@ -58,6 +59,8 @@ interface SubscriberTableProps {
   currentSearch: string;
   currentStatus: string;
   currentFrequency: string;
+  currentSortBy: SortColumn;
+  currentSortOrder: SortOrder;
 }
 
 export function SubscriberTable({
@@ -69,6 +72,8 @@ export function SubscriberTable({
   currentSearch,
   currentStatus,
   currentFrequency,
+  currentSortBy,
+  currentSortOrder,
 }: SubscriberTableProps) {
   const [search, setSearch] = useState(currentSearch);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -138,6 +143,14 @@ export function SubscriberTable({
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
+  };
+
+  const handleSort = (column: SortColumn) => {
+    let newOrder: SortOrder = 'asc';
+    if (currentSortBy === column && currentSortOrder === 'asc') {
+      newOrder = 'desc';
+    }
+    updateParams({ sortBy: column, sortOrder: newOrder, page: '1' });
   };
 
   const getDaysRemaining = (endDate: string) => {
@@ -287,7 +300,6 @@ export function SubscriberTable({
                 </div>
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
                   <div className="flex items-center gap-3">
-                    <span className="text-sm text-gray-600">Rs. {Number(subscriber.monthly_rate).toFixed(0)}</span>
                     <Badge variant="outline" className="border-gray-200 text-gray-500 text-xs capitalize">
                       {subscriber.frequency}
                     </Badge>
@@ -331,13 +343,36 @@ export function SubscriberTable({
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50 hover:bg-gray-50 border-gray-200">
-              <TableHead className="text-gray-500">Name</TableHead>
+              <TableHead
+                className="text-gray-500 cursor-pointer hover:bg-gray-100 transition-colors"
+                onClick={() => handleSort('full_name')}
+              >
+                <div className="flex items-center gap-1">
+                  Name
+                  {currentSortBy === 'full_name' ? (
+                    currentSortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 opacity-50" />
+                  )}
+                </div>
+              </TableHead>
               <TableHead className="text-gray-500">Email</TableHead>
               <TableHead className="text-gray-500">Status</TableHead>
               <TableHead className="text-gray-500">Frequency</TableHead>
-              <TableHead className="text-gray-500">Rate</TableHead>
               <TableHead className="text-gray-500">Reminder Days</TableHead>
-              <TableHead className="text-gray-500">Expires</TableHead>
+              <TableHead
+                className="text-gray-500 cursor-pointer hover:bg-gray-100 transition-colors"
+                onClick={() => handleSort('subscription_end_date')}
+              >
+                <div className="flex items-center gap-1">
+                  Expires
+                  {currentSortBy === 'subscription_end_date' ? (
+                    currentSortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 opacity-50" />
+                  )}
+                </div>
+              </TableHead>
               <TableHead className="text-gray-500">Remaining</TableHead>
               <TableHead className="text-gray-500 text-right">Actions</TableHead>
             </TableRow>
@@ -345,7 +380,7 @@ export function SubscriberTable({
           <TableBody>
             {subscribers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                   {currentSearch || currentStatus || currentFrequency
                     ? 'No subscribers found matching your filters'
                     : 'No subscribers yet'}
@@ -381,10 +416,7 @@ export function SubscriberTable({
                     <Badge variant="outline" className="border-gray-300 text-gray-600 capitalize">
                       {subscriber.frequency}
                     </Badge>
-                  </TableCell>
-                  <TableCell className="text-gray-900">
-                    Rs. {Number(subscriber.monthly_rate).toFixed(2)}
-                  </TableCell>
+                    </TableCell>
                   <TableCell className="text-gray-500">
                     {subscriber.reminder_days_before} days
                   </TableCell>
