@@ -1,3 +1,5 @@
+.gitignore
+
 # Dependencies
 /node_modules
 /.pnp
@@ -54,4 +56,4 @@ yarn-error.log*
 # Development
 instructions.md
 
-/supabase
+supabase/*

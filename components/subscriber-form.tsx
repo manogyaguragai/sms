@@ -18,6 +18,7 @@ import { Loader2, User, Mail, Phone, CalendarClock, DollarSign, Bell, UserPlus }
 import { toast } from 'sonner';
 import { addMonths, addYears } from 'date-fns';
 import type { Subscriber, SubscriberFormData } from '@/lib/types';
+import { logSubscriberCreation, logSubscriberUpdate } from '@/app/actions/subscriber';
 
 interface SubscriberFormProps {
   subscriber?: Subscriber;
@@ -51,7 +52,7 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
             ? addMonths(now, 1)
             : addYears(now, 1);
 
-        const { error } = await supabase.from('subscribers').insert({
+        const { data, error: insertError } = await supabase.from('subscribers').insert({
           full_name: formData.full_name,
           email: formData.email || null,
           phone: formData.phone || null,
@@ -61,13 +62,19 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
           subscription_end_date: subscriptionEndDate.toISOString(),
           status: 'active',
           referred_by: formData.referred_by || null,
-        });
+        }).select('id').single();
 
-        if (error) throw error;
+        if (insertError) throw insertError;
+
+        // Log the creation
+        if (data) {
+          await logSubscriberCreation(data.id, formData.full_name);
+        }
+
         toast.success('Subscriber added successfully!');
         router.push('/subscribers');
       } else if (subscriber) {
-        const { error } = await supabase
+        const { error: updateError } = await supabase
           .from('subscribers')
           .update({
             full_name: formData.full_name,
@@ -80,7 +87,17 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
           })
           .eq('id', subscriber.id);
 
-        if (error) throw error;
+        if (updateError) throw updateError;
+
+        // Log the update
+        await logSubscriberUpdate(subscriber.id, formData.full_name, {
+          full_name: formData.full_name,
+          email: formData.email,
+          phone: formData.phone,
+          frequency: formData.frequency,
+          monthly_rate: formData.monthly_rate,
+        });
+
         toast.success('Subscriber updated successfully!');
         router.push(`/subscribers/${subscriber.id}`);
       }

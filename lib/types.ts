@@ -1,5 +1,62 @@
 // TypeScript types for SubTrack Admin System
 
+// =============================================
+// RBAC Types
+// =============================================
+
+export type UserRole = 'super_admin' | 'admin' | 'staff';
+
+export interface Profile {
+  id: string;
+  role: UserRole;
+  full_name: string | null;
+  phone: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  user_id: string | null;
+  action_type: ActionType;
+  description: string;
+  metadata: Record<string, unknown>;
+  target_table: string | null;
+  target_id: string | null;
+  ip_address: string | null;
+  created_at: string;
+  // Joined profile data
+  profiles?: Profile;
+}
+
+export type ActionType = 
+  | 'USER_LOGIN'
+  | 'USER_LOGOUT'
+  | 'USER_CREATED'
+  | 'USER_DELETED'
+  | 'SUBSCRIBER_CREATED'
+  | 'SUBSCRIBER_UPDATED'
+  | 'SUBSCRIBER_DELETED'
+  | 'PAYMENT_CREATED'
+  | 'PAYMENT_DELETED'
+  | 'EMAIL_SENT'
+  | 'SMS_SENT'
+  | 'DATA_EXPORTED'
+  | 'SETTINGS_UPDATED'
+  | 'CRON_TRIGGERED';
+
+// Action type categories for UI color coding
+export const ACTION_CATEGORIES = {
+  CREATE: ['USER_CREATED', 'SUBSCRIBER_CREATED', 'PAYMENT_CREATED'],
+  DELETE: ['USER_DELETED', 'SUBSCRIBER_DELETED', 'PAYMENT_DELETED'],
+  COMMUNICATION: ['EMAIL_SENT', 'SMS_SENT'],
+  SYSTEM: ['USER_LOGIN', 'USER_LOGOUT', 'DATA_EXPORTED', 'SETTINGS_UPDATED', 'CRON_TRIGGERED'],
+} as const;
+
+// =============================================
+// Existing Types
+// =============================================
+
 export interface Subscriber {
   id: string;
   full_name: string;

@@ -6,6 +6,10 @@ import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useRole, getRoleLabel, getRoleBadgeColor } from '@/lib/hooks/use-role';
+import type { UserRole } from '@/lib/types';
 import {
   LayoutDashboard,
   Users,
@@ -15,13 +19,25 @@ import {
   CreditCard,
   Menu,
   X,
+  Activity,
+  Shield,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
-const navigation = [
+// Navigation items with role requirements
+interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  requiredRoles?: UserRole[];
+}
+
+const allNavigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Subscribers', href: '/subscribers', icon: Users },
   { name: 'Add New', href: '/subscribers/new', icon: UserPlus },
+  { name: 'Activity Logs', href: '/activity-logs', icon: Activity, requiredRoles: ['super_admin', 'admin'] },
+  { name: 'Users', href: '/users', icon: Shield, requiredRoles: ['super_admin', 'admin'] },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
@@ -30,6 +46,20 @@ export function Sidebar() {
   const router = useRouter();
   const supabase = createClient();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { role, profile, isLoading } = useRole();
+
+  // Filter navigation based on role
+  const navigation = useMemo(() => {
+    if (!role) {
+      // Show basic nav while loading
+      return allNavigation.filter(item => !item.requiredRoles);
+    }
+
+    return allNavigation.filter(item => {
+      if (!item.requiredRoles) return true;
+      return item.requiredRoles.includes(role);
+    });
+  }, [role]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -49,6 +79,34 @@ export function Sidebar() {
           <p className="text-xs text-gray-500">Admin System</p>
         </div>
       </div>
+
+      <Separator className="bg-gray-200" />
+
+      {/* User Info */}
+      {isLoading ? (
+        <div className="px-4 py-3">
+          <Skeleton className="h-10 w-full" />
+        </div>
+      ) : (
+        profile && (
+          <div className="px-4 py-3">
+            <div className="flex items-center gap-3 p-2 rounded-lg bg-gray-50">
+              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                <Shield className="w-4 h-4 text-blue-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                    {/* Show 'User' if full_name is email-like or empty */}
+                    {profile.full_name && !profile.full_name.includes('@') ? profile.full_name : 'User'}
+                </p>
+                <Badge className={`text-xs ${getRoleBadgeColor(profile.role)}`}>
+                  {getRoleLabel(profile.role)}
+                </Badge>
+              </div>
+            </div>
+          </div>
+        )
+      )}
 
       <Separator className="bg-gray-200" />
 
@@ -129,3 +187,4 @@ export function Sidebar() {
     </>
   );
 }
+
