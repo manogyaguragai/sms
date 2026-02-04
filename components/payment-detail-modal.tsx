@@ -76,12 +76,26 @@ export function PaymentDetailModal({ payment, open, onClose }: PaymentDetailModa
           {/* Payment Period */}
           {paymentPeriod && (
             <div className="flex items-start gap-3">
-              <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
-              <div>
-                <p className="text-sm text-gray-500">Payment For</p>
-                <Badge variant="outline" className="mt-1 border-blue-200 text-blue-600 bg-blue-50">
-                  {paymentPeriod}
-                </Badge>
+              <Calendar className="w-5 h-5 text-gray-400 mt-1 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-gray-500 mb-1.5">Payment For</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {paymentPeriod.includes(',') ? (
+                    paymentPeriod.split(',').map((period, index) => (
+                      <Badge
+                        key={index}
+                        variant="outline"
+                        className="border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 whitespace-nowrap"
+                      >
+                        {period.trim()}
+                      </Badge>
+                    ))
+                  ) : (
+                    <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 whitespace-normal text-left leading-normal">
+                      {paymentPeriod}
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
           )}

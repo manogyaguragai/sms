@@ -399,19 +399,23 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
                       setSelectedPayment(payment);
                       setShowPaymentDetailModal(true);
                     }}
-                    className="flex items-center justify-between p-4 rounded-lg bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors gap-3 sm:gap-4"
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <div className="flex items-start sm:items-center gap-4 w-full sm:w-auto">
+                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center shrink-0">
                         <DollarSign className="w-5 h-5 text-green-600" />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
                           <p className="font-medium text-gray-900">
                             Rs. {Number(payment.amount_paid).toFixed(2)}
                           </p>
                           {payment.notes && payment.notes.includes('Payment for:') && (
-                            <Badge variant="outline" className="text-xs border-blue-200 text-blue-600 bg-blue-50">
+                            <Badge
+                              variant="outline"
+                              className="text-xs border-blue-200 text-blue-700 bg-blue-50 max-w-[200px] truncate block"
+                              title={payment.notes.match(/Payment for:\s*([^|]+)/)?.[1]?.trim() || ''}
+                            >
                               For: {payment.notes.match(/Payment for:\s*([^|]+)/)?.[1]?.trim() || ''}
                             </Badge>
                           )}
@@ -421,14 +425,15 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+
+                    <div className="flex items-center gap-2 ml-14 sm:ml-0 self-start sm:self-auto">
                       {payment.proof_url && (
-                        <Badge variant="outline" className="text-xs border-green-200 text-green-600">
+                        <Badge variant="outline" className="text-xs border-green-200 text-green-700 bg-green-50">
                           Has Proof
                         </Badge>
                       )}
                       {payment.receipt_number && (
-                        <Badge variant="outline" className="text-xs border-gray-200 text-gray-600">
+                        <Badge variant="outline" className="text-xs border-gray-200 text-gray-600 bg-white">
                           Receipt
                         </Badge>
                       )}
