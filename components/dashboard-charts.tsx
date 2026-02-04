@@ -85,6 +85,8 @@ export function DashboardCharts({ paymentData, planData }: ChartProps) {
                   fill="#8884d8"
                   paddingAngle={5}
                   dataKey="value"
+                  label={({ name, value, percent }) => `${name}: ${value} (${((percent || 0) * 100).toFixed(0)}%)`}
+                  labelLine={true}
                 >
                   {planData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

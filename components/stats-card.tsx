@@ -13,6 +13,9 @@ interface StatsCardProps {
     positive: boolean;
   };
   className?: string;
+  valueClassName?: string;
+  iconClassName?: string;
+  iconBgClassName?: string;
   href?: string;
 }
 
@@ -23,6 +26,9 @@ export function StatsCard({
   icon: Icon,
   trend,
   className,
+  valueClassName,
+  iconClassName,
+  iconBgClassName,
   href,
 }: StatsCardProps) {
   const cardContent = (
@@ -36,7 +42,7 @@ export function StatsCard({
         <div className="flex items-start justify-between">
           <div className="space-y-2">
             <p className="text-sm font-medium text-gray-500">{title}</p>
-            <p className="text-3xl font-bold text-gray-900">{value}</p>
+            <p className={cn("text-3xl font-bold text-gray-900", valueClassName)}>{value}</p>
             {subtitle && (
               <p className="text-xs text-gray-500">{subtitle}</p>
             )}
@@ -51,8 +57,8 @@ export function StatsCard({
               </div>
             )}
           </div>
-          <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
-            <Icon className="w-6 h-6 text-blue-600" />
+          <div className={cn("w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center shrink-0", iconBgClassName)}>
+            <Icon className={cn("w-6 h-6 text-blue-600", iconClassName)} />
           </div>
         </div>
       </CardContent>
