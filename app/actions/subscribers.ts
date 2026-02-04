@@ -3,12 +3,17 @@
 import { createClient } from '@/lib/supabase/server';
 import type { Subscriber } from '@/lib/types';
 
+export type SortColumn = 'full_name' | 'subscription_end_date';
+export type SortOrder = 'asc' | 'desc';
+
 export interface PaginatedSubscribersParams {
   page?: number;
   pageSize?: number;
   search?: string;
   status?: string;
   frequency?: string;
+  sortBy?: SortColumn;
+  sortOrder?: SortOrder;
 }
 
 export interface PaginatedSubscribersResult {
@@ -29,6 +34,8 @@ export async function getSubscribersPaginated(
   const search = params.search || '';
   const status = params.status || '';
   const frequency = params.frequency || '';
+  const sortBy = params.sortBy || 'subscription_end_date';
+  const sortOrder = params.sortOrder || 'asc';
 
   // Calculate offset
   const from = (page - 1) * pageSize;
@@ -56,7 +63,7 @@ export async function getSubscribersPaginated(
 
   // Apply ordering and pagination
   query = query
-    .order('created_at', { ascending: false })
+    .order(sortBy, { ascending: sortOrder === 'asc' })
     .range(from, to);
 
   const { data, error, count } = await query;
