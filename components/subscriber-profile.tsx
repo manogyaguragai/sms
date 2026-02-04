@@ -42,6 +42,7 @@ import {
 import { differenceInDays, subMonths, subYears, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
 import { PaymentModal } from '@/components/payment-modal';
+import { PaymentDetailModal } from '@/components/payment-detail-modal';
 import { SubscriberForm } from '@/components/subscriber-form';
 import type { Subscriber, Payment } from '@/lib/types';
 import { updateSubscriptionDate, toggleSubscriberStatus } from '@/app/actions/subscriber';
@@ -60,6 +61,8 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showDateDialog, setShowDateDialog] = useState(false);
+  const [showPaymentDetailModal, setShowPaymentDetailModal] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [newEndDate, setNewEndDate] = useState(() => toNepaliDateString(subscriber.subscription_end_date));
   const [updatingDate, setUpdatingDate] = useState(false);
@@ -243,24 +246,8 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Rate Card */}
-        <Card className="bg-white border-gray-200 shadow-sm">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Rate</p>
-              <p className="text-lg font-semibold text-gray-900">
-                Rs. {Number(subscriber.monthly_rate).toFixed(2)}
-                <span className="text-xs text-gray-400 ml-1">
-                  /{subscriber.frequency === 'monthly' ? 'mo' : 'yr'}
-                </span>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
 
         {/* Expires Card with details */}
         <Card className="bg-white border-gray-200 shadow-sm col-span-1 lg:col-span-2">
@@ -408,7 +395,11 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
                 {payments.map((payment) => (
                   <div
                     key={payment.id}
-                    className="flex items-center justify-between p-4 rounded-lg bg-gray-50"
+                    onClick={() => {
+                      setSelectedPayment(payment);
+                      setShowPaymentDetailModal(true);
+                    }}
+                    className="flex items-center justify-between p-4 rounded-lg bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
@@ -428,22 +419,20 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
                         <p className="text-sm text-gray-500">
                           {formatNepaliDateTime(payment.payment_date)}
                         </p>
-                        {payment.notes && (
-                          <p className="text-xs text-gray-500 mt-1">{payment.notes}</p>
-                        )}
                       </div>
                     </div>
-                    {payment.proof_url && (
-                      <a
-                        href={payment.proof_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
-                      >
-                        View Proof
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {payment.proof_url && (
+                        <Badge variant="outline" className="text-xs border-green-200 text-green-600">
+                          Has Proof
+                        </Badge>
+                      )}
+                      {payment.receipt_number && (
+                        <Badge variant="outline" className="text-xs border-gray-200 text-gray-600">
+                          Receipt
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -457,6 +446,16 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
         subscriber={subscriber}
         open={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
+      />
+
+      {/* Payment Detail Modal */}
+      <PaymentDetailModal
+        payment={selectedPayment}
+        open={showPaymentDetailModal}
+        onClose={() => {
+          setShowPaymentDetailModal(false);
+          setSelectedPayment(null);
+        }}
       />
 
       {/* Edit Modal */}
