@@ -159,6 +159,7 @@ export async function updatePayment(
     notes?: string;
     receipt_number?: string | null;
     payment_mode?: 'online_transfer' | 'physical_transfer' | null;
+    proof_url?: string | null;
   }
 ): Promise<{ success: boolean; message: string }> {
   // Check RBAC permission
