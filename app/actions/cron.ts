@@ -27,8 +27,9 @@ export async function testCronJobAction() {
       return { success: true, message: 'No active subscribers found', emailsSent: 0, smsSent: false };
     }
 
-    // Normalize to start of day for accurate day comparison
-    const today = startOfDay(new Date());
+    // Use Nepal timezone for accurate day-boundary comparison
+    const nowInNepal = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kathmandu' }));
+    const today = startOfDay(nowInNepal);
     
     // Collect subscribers whose subscription is ending within their reminder window
     const subscribersNeedingReminder = [];
@@ -108,7 +109,8 @@ export async function checkExpiredSubscriptions() {
       return { success: true, message: 'No active subscribers found', inactiveCount: 0 };
     }
 
-    const today = startOfDay(new Date());
+    const nowInNepal = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kathmandu' }));
+    const today = startOfDay(nowInNepal);
     const subscribersToDeactivate: InactiveSubscriberInfo[] = [];
     const subscriberIdsToUpdate: string[] = [];
 
