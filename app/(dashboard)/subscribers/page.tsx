@@ -1,5 +1,6 @@
 import { getSubscribersPaginated, type SortColumn, type SortOrder } from '@/app/actions/subscribers';
 import { SubscriberTable } from '@/components/subscriber-table';
+import { SubscriberListPrintButton } from '@/components/subscriber-list-print-button';
 import { Button } from '@/components/ui/button';
 import { UserPlus, Users } from 'lucide-react';
 import Link from 'next/link';
@@ -53,12 +54,15 @@ export default async function SubscribersPage({ searchParams }: PageProps) {
             Manage your {result.totalCount} subscriber{result.totalCount !== 1 ? 's' : ''}
           </p>
         </div>
-        <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white">
-          <Link href="/subscribers/new">
-            <UserPlus className="w-4 h-4 mr-2" />
-            Add Subscriber
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <SubscriberListPrintButton />
+          <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white">
+            <Link href="/subscribers/new">
+              <UserPlus className="w-4 h-4 mr-2" />
+              Add Subscriber
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Table with Pagination */}
