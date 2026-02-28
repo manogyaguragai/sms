@@ -4,8 +4,6 @@ import { sendAdminReminderEmail, sendInactiveSubscriberEmail } from '@/lib/resen
 import { sendAdminReminderSMS, sendInactiveSubscriberSMS } from '@/lib/notification';
 import { differenceInDays, startOfDay, format } from 'date-fns';
 
-export const runtime = 'edge';
-
 interface SubscriberReminder {
   name: string;
   email: string;
@@ -61,7 +59,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const today = startOfDay(new Date());
+    // Use Nepal timezone for accurate day-boundary comparison
+    const nowInNepal = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kathmandu' }));
+    const today = startOfDay(nowInNepal);
     const subscribersNeedingReminder: SubscriberReminder[] = [];
     const subscribersToDeactivate: InactiveSubscriberInfo[] = [];
     const subscriberIdsToUpdate: string[] = [];
