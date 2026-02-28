@@ -3,7 +3,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRole } from '@/lib/hooks/use-role';
-import { updatePayment, deletePayment } from '@/app/actions/subscriber';
+import { updatePayment, deletePayment, checkReceiptNumberExists } from '@/app/actions/subscriber';
+import { createClient } from '@/lib/supabase/client';
+import imageCompression from 'browser-image-compression';
 import {
   Dialog,
   DialogContent,
@@ -46,6 +48,7 @@ import {
   X,
   Save,
   Trash2,
+  Upload,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -69,6 +72,7 @@ interface SelectedPeriod {
 
 export function PaymentDetailModal({ payment, open, onClose }: PaymentDetailModalProps) {
   const router = useRouter();
+  const supabase = createClient();
   const { hasPermission } = useRole();
   const canEdit = hasPermission('UPDATE_PAYMENT');
   const canDelete = hasPermission('DELETE_PAYMENT');
@@ -85,6 +89,12 @@ export function PaymentDetailModal({ payment, open, onClose }: PaymentDetailModa
   const [editNotes, setEditNotes] = useState('');
   const [editReceiptNumber, setEditReceiptNumber] = useState('');
   const [editPaymentMode, setEditPaymentMode] = useState<'online_transfer' | 'physical_transfer' | ''>('');
+  const [receiptError, setReceiptError] = useState<string | null>(null);
+
+  // Image edit state
+  const [editFile, setEditFile] = useState<File | null>(null);
+  const [editPreview, setEditPreview] = useState<string | null>(null);
+  const [removeExistingImage, setRemoveExistingImage] = useState(false);
 
   // Calendar state
   const currentNepali = useMemo(() => new NepaliDate(new Date()), []);
@@ -125,6 +135,10 @@ export function PaymentDetailModal({ payment, open, onClose }: PaymentDetailModa
       setEditNotes(notes);
       setEditReceiptNumber(payment.receipt_number || '');
       setEditPaymentMode(payment.payment_mode || '');
+      setReceiptError(null);
+      setEditFile(null);
+      setEditPreview(null);
+      setRemoveExistingImage(false);
       setIsEditing(false);
       // Set calendar to first selected period year or current year
       if (periods.length > 0) {
@@ -179,18 +193,98 @@ export function PaymentDetailModal({ payment, open, onClose }: PaymentDetailModa
     return selectedPeriods.some(p => p.month === monthIndex && p.year === calendarYear);
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+
+    if (!selectedFile.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    try {
+      const options = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1200,
+        useWebWorker: true,
+        fileType: 'image/webp' as const,
+      };
+
+      toast.info('Compressing image...');
+      const compressedFile = await imageCompression(selectedFile, options);
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditPreview(reader.result as string);
+      };
+      reader.readAsDataURL(compressedFile);
+
+      setEditFile(compressedFile);
+      setRemoveExistingImage(false);
+      toast.success('Image compressed successfully');
+    } catch (error) {
+      console.error('Error compressing image:', error);
+      toast.error('Failed to compress image');
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Check for duplicate receipt number before saving
+      if (editReceiptNumber.trim()) {
+        const duplicateCheck = await checkReceiptNumberExists(editReceiptNumber.trim(), payment.id);
+        if (duplicateCheck.exists) {
+          setReceiptError(
+            `Receipt number "${editReceiptNumber}" already exists for subscriber ${duplicateCheck.subscriberName}. Please use a unique receipt number.`
+          );
+          toast.warning(
+            `Receipt number "${editReceiptNumber}" already exists. Please use a unique receipt number.`
+          );
+          setSaving(false);
+          return;
+        }
+      }
       const combinedNotes = buildNotesString(selectedPeriods, editNotes);
 
-      const result = await updatePayment(payment.id, payment.subscriber_id, {
+      // Handle image upload/replace/remove
+      let proofUrl: string | null | undefined = undefined; // undefined = no change
+      if (editFile) {
+        // Upload new image
+        const fileName = `${payment.subscriber_id}/${Date.now()}.webp`;
+        const { error: uploadError } = await supabase.storage
+          .from('vouchers')
+          .upload(fileName, editFile, {
+            contentType: 'image/webp',
+            upsert: false,
+          });
+
+        if (uploadError) {
+          console.error('Storage upload error:', uploadError);
+          toast.warning('Image upload failed. Other changes will still be saved.');
+        } else {
+          const { data: urlData } = supabase.storage
+            .from('vouchers')
+            .getPublicUrl(fileName);
+          proofUrl = urlData.publicUrl;
+        }
+      } else if (removeExistingImage) {
+        proofUrl = null;
+      }
+
+      const updateData: Parameters<typeof updatePayment>[2] = {
         amount_paid: parseFloat(editAmount),
         payment_date: editPaymentDate.toISOString(),
         notes: combinedNotes,
         receipt_number: editReceiptNumber || null,
         payment_mode: editPaymentMode || null,
-      });
+      };
+
+      if (proofUrl !== undefined) {
+        updateData.proof_url = proofUrl;
+      }
+
+      const result = await updatePayment(payment.id, payment.subscriber_id, updateData);
 
       if (result.success) {
         toast.success(result.message);
@@ -232,7 +326,11 @@ export function PaymentDetailModal({ payment, open, onClose }: PaymentDetailModa
     setSelectedPeriods(periods);
     setEditNotes(notes);
     setEditReceiptNumber(payment.receipt_number || '');
+    setReceiptError(null);
     setEditPaymentMode(payment.payment_mode || '');
+    setEditFile(null);
+    setEditPreview(null);
+    setRemoveExistingImage(false);
     setIsEditing(false);
   };
 
@@ -427,9 +525,15 @@ export function PaymentDetailModal({ payment, open, onClose }: PaymentDetailModa
                 <Input
                   placeholder="e.g., REC-001234"
                   value={editReceiptNumber}
-                  onChange={(e) => setEditReceiptNumber(e.target.value)}
-                  className="bg-white border-gray-300 text-gray-900"
+                  onChange={(e) => {
+                    setEditReceiptNumber(e.target.value);
+                    setReceiptError(null);
+                  }}
+                  className={`bg-white border-gray-300 text-gray-900 ${receiptError ? 'border-red-400 focus:border-red-500 focus:ring-red-500' : ''}`}
                 />
+                {receiptError && (
+                  <p className="text-sm text-red-600 mt-1">{receiptError}</p>
+                )}
               </div>
             ) : payment.receipt_number ? (
               <div className="flex items-start gap-3">
@@ -495,10 +599,114 @@ export function PaymentDetailModal({ payment, open, onClose }: PaymentDetailModa
               </div>
             ) : null}
 
-            {/* Proof Image - Read Only */}
-            {payment.proof_url && (
-              <>
-                <Separator className="bg-gray-200" />
+            {/* Proof Image */}
+            <Separator className="bg-gray-200" />
+            {isEditing ? (
+              <div className="space-y-2">
+                <Label className="text-gray-700 flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4" />
+                  Payment Proof
+                </Label>
+
+                {editPreview ? (
+                  /* New image selected — show preview */
+                  <div className="border-2 border-dashed border-green-500/50 bg-green-50 rounded-lg p-4">
+                    <div className="space-y-2 text-center">
+                      <img
+                        src={editPreview}
+                        alt="New payment proof preview"
+                        className="max-h-40 mx-auto rounded-lg"
+                      />
+                      <p className="text-sm text-green-600">New image ready</p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setEditFile(null);
+                          setEditPreview(null);
+                        }}
+                        className="text-gray-500 hover:text-red-500"
+                      >
+                        <X className="w-3 h-3 mr-1" />
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ) : payment.proof_url && !removeExistingImage ? (
+                  /* Existing image — show with replace/remove options */
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="relative">
+                      <img
+                        src={payment.proof_url}
+                        alt="Current payment proof"
+                        className="w-full rounded-t-lg"
+                      />
+                    </div>
+                    <div className="flex items-center justify-center gap-2 p-2 bg-gray-50 border-t border-gray-200">
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileChange}
+                          className="hidden"
+                        />
+                        <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors">
+                          <Upload className="w-3 h-3" />
+                          Replace
+                        </span>
+                      </label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setRemoveExistingImage(true)}
+                        className="text-xs text-red-500 hover:text-red-600 hover:bg-red-50 h-auto py-1.5 px-3"
+                      >
+                        <Trash2 className="w-3 h-3 mr-1" />
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  /* No image — show upload area */
+                  <div className="border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-lg p-4 transition-colors">
+                    <label className="cursor-pointer block">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                      <div className="space-y-2 text-center">
+                        <div className="w-12 h-12 mx-auto bg-gray-100 rounded-lg flex items-center justify-center">
+                          <Upload className="w-6 h-6 text-gray-400" />
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          Click to upload payment proof
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          Images will be compressed to max 1200px
+                        </p>
+                      </div>
+                    </label>
+                    {removeExistingImage && (
+                      <div className="mt-2 text-center">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setRemoveExistingImage(false)}
+                          className="text-xs text-blue-500 hover:text-blue-600"
+                        >
+                          Restore original image
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : payment.proof_url ? (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <ImageIcon className="w-5 h-5 text-gray-400" />
@@ -521,8 +729,7 @@ export function PaymentDetailModal({ payment, open, onClose }: PaymentDetailModa
                     </a>
                   </div>
                 </div>
-              </>
-            )}
+            ) : null}
           </div>
 
           {/* Edit Mode Footer */}

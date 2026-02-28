@@ -110,6 +110,44 @@ export async function deleteSubscriber(id: string): Promise<{ success: boolean; 
 }
 
 /**
+ * Check if a receipt number already exists in any payment record.
+ * Optionally exclude a specific payment ID (useful for edit flows).
+ */
+export async function checkReceiptNumberExists(
+  receiptNumber: string,
+  excludePaymentId?: string
+): Promise<{ exists: boolean; subscriberName?: string }> {
+  const supabase = createAdminClient();
+
+  let query = supabase
+    .from('payments')
+    .select('id, subscriber_id')
+    .eq('receipt_number', receiptNumber);
+
+  if (excludePaymentId) {
+    query = query.neq('id', excludePaymentId);
+  }
+
+  const { data, error } = await query.limit(1);
+
+  if (error || !data || data.length === 0) {
+    return { exists: false };
+  }
+
+  // Get subscriber name for the warning message
+  const { data: subscriber } = await supabase
+    .from('subscribers')
+    .select('full_name')
+    .eq('id', data[0].subscriber_id)
+    .single();
+
+  return {
+    exists: true,
+    subscriberName: subscriber?.full_name || 'Unknown',
+  };
+}
+
+/**
  * Update a payment record - requires UPDATE_PAYMENT permission (super_admin or admin only)
  */
 export async function updatePayment(
@@ -121,6 +159,7 @@ export async function updatePayment(
     notes?: string;
     receipt_number?: string | null;
     payment_mode?: 'online_transfer' | 'physical_transfer' | null;
+    proof_url?: string | null;
   }
 ): Promise<{ success: boolean; message: string }> {
   // Check RBAC permission
@@ -141,6 +180,17 @@ export async function updatePayment(
 
     if (!subscriber) {
       return { success: false, message: 'Subscriber not found' };
+    }
+
+    // Check for duplicate receipt number before updating
+    if (updates.receipt_number) {
+      const duplicateCheck = await checkReceiptNumberExists(updates.receipt_number, paymentId);
+      if (duplicateCheck.exists) {
+        return {
+          success: false,
+          message: `Receipt number "${updates.receipt_number}" already exists for subscriber ${duplicateCheck.subscriberName}. Please use a unique receipt number.`,
+        };
+      }
     }
 
     // Update the payment

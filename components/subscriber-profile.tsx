@@ -40,6 +40,7 @@ import {
   Power,
   ChevronLeft,
   ChevronRight,
+  Printer,
 } from 'lucide-react';
 import { differenceInDays, subMonths, subYears, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
@@ -50,6 +51,7 @@ import type { Subscriber, Payment } from '@/lib/types';
 import { updateSubscriptionDate, toggleSubscriberStatus } from '@/app/actions/subscriber';
 import { formatNepaliDate, formatNepaliDateTime, toNepaliDateString, fromNepaliDateString, NEPALI_MONTHS } from '@/lib/nepali-date';
 import { PaymentPeriodCalendar } from '@/components/payment-period-calendar';
+import { SubscriberStatement } from '@/components/subscriber-statement';
 
 interface SubscriberProfileProps {
   subscriber: Subscriber;
@@ -66,6 +68,7 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
   const [showDateDialog, setShowDateDialog] = useState(false);
   const [showPaymentDetailModal, setShowPaymentDetailModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [showStatementDialog, setShowStatementDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [newEndDate, setNewEndDate] = useState(() => toNepaliDateString(subscriber.subscription_end_date));
   const [updatingDate, setUpdatingDate] = useState(false);
@@ -256,6 +259,14 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
             >
               <CreditCard className="w-4 h-4 mr-2" />
               Record Payment
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowStatementDialog(true)}
+              className="border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-10 col-span-2 sm:col-span-1"
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              Statement
             </Button>
           </div>
         </div>
@@ -529,6 +540,13 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
         subscriber={subscriber}
         open={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
+      />
+
+      {/* Subscriber Statement */}
+      <SubscriberStatement
+        subscriber={subscriber}
+        open={showStatementDialog}
+        onClose={() => setShowStatementDialog(false)}
       />
 
       {/* Payment Detail Modal */}
