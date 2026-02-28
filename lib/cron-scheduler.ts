@@ -21,7 +21,8 @@ export function startCronScheduler() {
     return;
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:3000';
+  const rawUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:3000';
+  const appUrl = rawUrl.replace(/\/+$/, ''); // strip trailing slashes
 
   // Run daily at 4:15 AM UTC = 10:00 AM NPT (Nepal Standard Time, UTC+5:45)
   cron.schedule('15 4 * * *', async () => {
