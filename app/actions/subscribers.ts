@@ -85,9 +85,26 @@ export async function getSubscribersPaginated(
     query = query.in('id', subscriberIdsWithNoPayments);
   }
 
-  // Apply search filter (search in full_name and email)
+  // Apply search filter (search in full_name, email, phone, and receipt_number)
   if (search) {
-    query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
+    // Search for subscribers whose payments have a matching receipt number
+    const { data: matchingPayments } = await supabase
+      .from('payments')
+      .select('subscriber_id')
+      .ilike('receipt_number', `%${search}%`);
+
+    const receiptSubscriberIds = [
+      ...new Set((matchingPayments || []).map(p => p.subscriber_id)),
+    ];
+
+    if (receiptSubscriberIds.length > 0) {
+      // Search across name, email, phone, OR matching receipt subscriber IDs
+      query = query.or(
+        `full_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%,id.in.(${receiptSubscriberIds.join(',')})`
+      );
+    } else {
+      query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`);
+    }
   }
 
   // Apply status filter
