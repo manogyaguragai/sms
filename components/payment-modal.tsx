@@ -191,44 +191,35 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
     }
   };
 
-  // Parse period from notes field (e.g., "Payment for: Baisakh 2083" or "For: Baisakh 2083")
-  const parsePeriodFromNotes = (notesStr: string): MonthSelection | null => {
+  // Parse ALL periods from notes field (e.g., "Payment for: Poush 2082, Magh 2082, Falgun 2082")
+  const parsePeriodsFromNotes = (notesStr: string): MonthSelection[] => {
+    const results: MonthSelection[] = [];
     try {
-      console.log('Trying to parse notes:', notesStr);
-      // Match pattern like "Payment for: Baisakh 2083" or "For: Baisakh 2083"
-      // Use a flexible pattern that handles various separators and formats
-      const match = notesStr.match(/(?:Payment\s+)?[Ff]or[:\s]+([A-Za-z]+)\s+(\d{4})/);
-      console.log('Regex match result:', match);
-      if (!match) return null;
-
-      const monthName = match[1];
-      const year = parseInt(match[2], 10);
-
-      // Find month index
-      const monthIndex = months.findIndex(
-        m => m.toLowerCase() === monthName.toLowerCase()
-      );
-      console.log('Month name:', monthName, 'Year:', year, 'Month index:', monthIndex);
-
-      if (monthIndex === -1 || isNaN(year)) return null;
-
-      return { month: monthIndex, year };
-    } catch (e) {
-      console.log('Error parsing notes:', e);
-      return null;
+      const regex = /([A-Za-z]+)\s+(\d{4})/g;
+      let match;
+      while ((match = regex.exec(notesStr)) !== null) {
+        const monthName = match[1];
+        const year = parseInt(match[2], 10);
+        const monthIndex = months.findIndex(
+          m => m.toLowerCase() === monthName.toLowerCase()
+        );
+        if (monthIndex !== -1 && !isNaN(year)) {
+          results.push({ month: monthIndex, year });
+        }
+      }
+    } catch {
+      // ignore
     }
+    return results;
   };
 
-  // Helper to get Nepali month/year from a payment record
+  // Helper to get ALL Nepali month/year periods from a payment record
   // IMPORTANT: We try notes first because old payments have corrupt dates but correct notes
-  const getMonthYearFromPayment = (payment: Payment): MonthSelection | null => {
+  const getPeriodsFromPayment = (payment: Payment): MonthSelection[] => {
     // Try parsing from notes first (more reliable for old data)
     if (payment.notes) {
-      const fromNotes = parsePeriodFromNotes(payment.notes);
-      if (fromNotes) {
-        console.log('Parsed from notes:', fromNotes, 'from:', payment.notes);
-        return fromNotes;
-      }
+      const fromNotes = parsePeriodsFromNotes(payment.notes);
+      if (fromNotes.length > 0) return fromNotes;
     }
 
     // Fallback: try date conversion (for future properly stored data)
@@ -236,15 +227,13 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
       try {
         const date = new Date(payment.payment_for_period);
         const nepaliDate = new NepaliDate(date);
-        const result = { month: nepaliDate.getMonth(), year: nepaliDate.getYear() };
-        console.log('Parsed from payment_for_period:', result, 'from date:', payment.payment_for_period);
-        return result;
-      } catch (e) {
-        console.log('Failed to parse payment_for_period:', e);
+        return [{ month: nepaliDate.getMonth(), year: nepaliDate.getYear() }];
+      } catch {
+      // ignore
       }
     }
 
-    return null;
+    return [];
   };
 
   // Legacy helper for backwards compatibility (keeping for end date calculation)
@@ -277,22 +266,16 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
 
     // Find payments that overlap with any selected month
     const conflicting = existingPayments.filter((payment: Payment) => {
-      // Use the new function that tries date parsing first, then notes parsing
-      const paymentPeriod = getMonthYearFromPayment(payment);
-      if (!paymentPeriod) {
-        console.log('Could not parse period for payment:', payment.id);
-        return false;
-      }
-      console.log('Payment period:', paymentPeriod, 'for payment:', payment.id);
+      const paymentPeriods = getPeriodsFromPayment(payment);
+      if (paymentPeriods.length === 0) return false;
 
-      const matches = selectedMonths.some(
-        m => m.month === paymentPeriod.month && m.year === paymentPeriod.year
+      return paymentPeriods.some(pp =>
+        selectedMonths.some(
+          m => m.month === pp.month && m.year === pp.year
+        )
       );
-      if (matches) console.log('Found conflict with payment:', payment.id);
-      return matches;
     });
 
-    console.log('Conflicting payments found:', conflicting.length);
     return conflicting;
   };
 
@@ -315,25 +298,20 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
     });
     const lastPeriod = sorted[sorted.length - 1];
 
-    if (subscriber.frequency === 'monthly') {
-      let endMonth = lastPeriod.month + 1;
-      let endYear = lastPeriod.year;
-      if (endMonth > 11) {
-        endMonth = 0;
-        endYear = endYear + 1;
-      }
-      const nepaliEndDate = new NepaliDate(endYear, endMonth, 1);
-      return nepaliEndDate.toJsDate();
-    } else {
-      const nepaliEndDate = new NepaliDate(lastPeriod.year + 1, lastPeriod.month, 1);
-      return nepaliEndDate.toJsDate();
+    // End date is always the 1st of the month after the last paid period
+    let endMonth = lastPeriod.month + 1;
+    let endYear = lastPeriod.year;
+    if (endMonth > 11) {
+      endMonth = 0;
+      endYear = endYear + 1;
     }
+    const nepaliEndDate = new NepaliDate(endYear, endMonth, 1);
+    return nepaliEndDate.toJsDate();
   };
 
   // Insert payment and update subscription end date
   const insertPaymentAndUpdateSubscription = async (
-    proofUrl: string | null,
-    additionalPeriods: MonthSelection[] = []
+    proofUrl: string | null
   ) => {
     const amountValue = parseFloat(amount);
     const paymentForPeriod = getPaymentForPeriod();
@@ -357,8 +335,22 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
       await logPaymentCreation(paymentData.id, subscriber.full_name, amountValue);
     }
 
-    // Calculate end date from all unique periods (new + any additional from existing payments)
-    const allPeriods = [...selectedMonths, ...additionalPeriods];
+    // Fetch ALL payments for this subscriber to recalculate end date from all periods
+    const { data: allPayments } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('subscriber_id', subscriber.id);
+
+    const allPeriods: MonthSelection[] = [];
+    if (allPayments) {
+      for (const p of allPayments) {
+        const periods = getPeriodsFromPayment(p);
+        allPeriods.push(...periods);
+      }
+    }
+    // Fallback: include selected months in case parsing fails for some payments
+    allPeriods.push(...selectedMonths);
+
     const newEndDate = calculateEndDateFromPeriods(allPeriods);
 
     const { error: updateError } = await supabase
@@ -477,19 +469,12 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
     }
   };
 
-  // Handler for "Keep Both" - insert new payment alongside old, but don't double-count end date
+  // Handler for "Keep Both" - insert new payment alongside old
   const handleKeepBoth = async () => {
     setLoading(true);
     try {
-      // Collect periods from existing payments to avoid double-counting
-      const existingPeriods: MonthSelection[] = [];
-      for (const payment of conflictingPayments) {
-        const period = getMonthYearFromPayment(payment);
-        if (period) existingPeriods.push(period);
-      }
-
-      // Insert new payment, but calculate end date considering all unique periods
-      await insertPaymentAndUpdateSubscription(pendingProofUrl, existingPeriods);
+      // Insert new payment - end date is recalculated from ALL DB payments automatically
+      await insertPaymentAndUpdateSubscription(pendingProofUrl);
     } catch (error) {
       console.error('Error adding payment:', error);
       toast.error('Failed to add payment. Please try again.');
@@ -504,8 +489,10 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
   // Get conflict details for display
   const getConflictDetails = () => {
     return conflictingPayments.map(payment => {
-      const period = getMonthYearFromPayment(payment);
-      const periodLabel = period ? `${months[period.month]} ${period.year}` : 'Unknown';
+      const periods = getPeriodsFromPayment(payment);
+      const periodLabel = periods.length > 0
+        ? periods.map(p => `${months[p.month]} ${p.year}`).join(', ')
+        : 'Unknown';
       return {
         id: payment.id,
         amount: payment.amount_paid,
