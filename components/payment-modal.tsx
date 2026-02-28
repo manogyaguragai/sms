@@ -42,7 +42,7 @@ import imageCompression from 'browser-image-compression';
 import NepaliDate from 'nepali-date-converter';
 import { NepaliDateTimePicker } from '@/components/nepali-datetime-picker';
 import type { Subscriber, Payment } from '@/lib/types';
-import { logPaymentCreation } from '@/app/actions/subscriber';
+import { logPaymentCreation, checkReceiptNumberExists } from '@/app/actions/subscriber';
 
 interface PaymentModalProps {
   subscriber: Subscriber;
@@ -68,6 +68,7 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
   const [amount, setAmount] = useState<string>(''); // Manual amount entry
   const [proofError, setProofError] = useState<string | null>(null);
   const [periodError, setPeriodError] = useState<string | null>(null);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
 
   // Conflict resolution state
   const [showConflictDialog, setShowConflictDialog] = useState(false);
@@ -91,6 +92,7 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
       setAmount('');
       setProofError(null);
       setPeriodError(null);
+      setReceiptError(null);
       setSelectedMonths([]);
       setPickerYear(2082);
       setShowConflictDialog(false);
@@ -394,6 +396,21 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
     setLoading(true);
 
     try {
+      // Check for duplicate receipt number before proceeding
+      if (receiptNumber.trim()) {
+        const duplicateCheck = await checkReceiptNumberExists(receiptNumber.trim());
+        if (duplicateCheck.exists) {
+          setReceiptError(
+            `Receipt number "${receiptNumber}" already exists for subscriber ${duplicateCheck.subscriberName}. Please use a unique receipt number.`
+          );
+          toast.warning(
+            `Receipt number "${receiptNumber}" already exists. Please use a unique receipt number.`
+          );
+          setLoading(false);
+          return;
+        }
+      }
+
       let proofUrl: string | null = null;
 
       // Upload proof if provided
@@ -515,6 +532,7 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
       setAmount('');
       setProofError(null);
       setPeriodError(null);
+      setReceiptError(null);
       setShowConflictDialog(false);
       setConflictingPayments([]);
       setPendingProofUrl(null);
@@ -635,9 +653,13 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
                 onChange={(e) => {
                   setReceiptNumber(e.target.value);
                   setProofError(null);
+                  setReceiptError(null);
                 }}
-              className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
+                className={`bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500 ${receiptError ? 'border-red-400 focus:border-red-500 focus:ring-red-500' : ''}`}
             />
+              {receiptError && (
+                <p className="text-sm text-red-600 mt-1">{receiptError}</p>
+              )}
           </div>
 
           {/* Mode of Payment */}

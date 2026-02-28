@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRole } from '@/lib/hooks/use-role';
-import { updatePayment, deletePayment } from '@/app/actions/subscriber';
+import { updatePayment, deletePayment, checkReceiptNumberExists } from '@/app/actions/subscriber';
 import {
   Dialog,
   DialogContent,
@@ -85,6 +85,7 @@ export function PaymentDetailModal({ payment, open, onClose }: PaymentDetailModa
   const [editNotes, setEditNotes] = useState('');
   const [editReceiptNumber, setEditReceiptNumber] = useState('');
   const [editPaymentMode, setEditPaymentMode] = useState<'online_transfer' | 'physical_transfer' | ''>('');
+  const [receiptError, setReceiptError] = useState<string | null>(null);
 
   // Calendar state
   const currentNepali = useMemo(() => new NepaliDate(new Date()), []);
@@ -125,6 +126,7 @@ export function PaymentDetailModal({ payment, open, onClose }: PaymentDetailModa
       setEditNotes(notes);
       setEditReceiptNumber(payment.receipt_number || '');
       setEditPaymentMode(payment.payment_mode || '');
+      setReceiptError(null);
       setIsEditing(false);
       // Set calendar to first selected period year or current year
       if (periods.length > 0) {
@@ -182,6 +184,20 @@ export function PaymentDetailModal({ payment, open, onClose }: PaymentDetailModa
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Check for duplicate receipt number before saving
+      if (editReceiptNumber.trim()) {
+        const duplicateCheck = await checkReceiptNumberExists(editReceiptNumber.trim(), payment.id);
+        if (duplicateCheck.exists) {
+          setReceiptError(
+            `Receipt number "${editReceiptNumber}" already exists for subscriber ${duplicateCheck.subscriberName}. Please use a unique receipt number.`
+          );
+          toast.warning(
+            `Receipt number "${editReceiptNumber}" already exists. Please use a unique receipt number.`
+          );
+          setSaving(false);
+          return;
+        }
+      }
       const combinedNotes = buildNotesString(selectedPeriods, editNotes);
 
       const result = await updatePayment(payment.id, payment.subscriber_id, {
@@ -232,6 +248,7 @@ export function PaymentDetailModal({ payment, open, onClose }: PaymentDetailModa
     setSelectedPeriods(periods);
     setEditNotes(notes);
     setEditReceiptNumber(payment.receipt_number || '');
+    setReceiptError(null);
     setEditPaymentMode(payment.payment_mode || '');
     setIsEditing(false);
   };
@@ -427,9 +444,15 @@ export function PaymentDetailModal({ payment, open, onClose }: PaymentDetailModa
                 <Input
                   placeholder="e.g., REC-001234"
                   value={editReceiptNumber}
-                  onChange={(e) => setEditReceiptNumber(e.target.value)}
-                  className="bg-white border-gray-300 text-gray-900"
+                  onChange={(e) => {
+                    setEditReceiptNumber(e.target.value);
+                    setReceiptError(null);
+                  }}
+                  className={`bg-white border-gray-300 text-gray-900 ${receiptError ? 'border-red-400 focus:border-red-500 focus:ring-red-500' : ''}`}
                 />
+                {receiptError && (
+                  <p className="text-sm text-red-600 mt-1">{receiptError}</p>
+                )}
               </div>
             ) : payment.receipt_number ? (
               <div className="flex items-start gap-3">
