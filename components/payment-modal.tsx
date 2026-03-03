@@ -43,6 +43,7 @@ import NepaliDate from 'nepali-date-converter';
 import { NepaliDateTimePicker } from '@/components/nepali-datetime-picker';
 import type { Subscriber, Payment } from '@/lib/types';
 import { logPaymentCreation, checkReceiptNumberExists } from '@/app/actions/subscriber';
+import { uploadPaymentProof } from '@/app/actions/upload';
 
 interface PaymentModalProps {
   subscriber: Subscriber;
@@ -413,24 +414,19 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
 
       let proofUrl: string | null = null;
 
-      // Upload proof if provided
+      // Upload proof if provided (via server action to bypass storage RLS)
       if (file) {
-        const fileName = `${subscriber.id}/${Date.now()}.webp`;
-        const { error: uploadError } = await supabase.storage
-          .from('vouchers')
-          .upload(fileName, file, {
-            contentType: 'image/webp',
-            upsert: false,
-          });
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('subscriberId', subscriber.id);
 
-        if (uploadError) {
-          console.error('Storage upload error:', uploadError);
+        const uploadResult = await uploadPaymentProof(formData);
+
+        if (uploadResult.error) {
+          console.error('Storage upload error:', uploadResult.error);
           toast.warning('Image upload failed. Payment will be recorded without proof.');
         } else {
-          const { data: urlData } = supabase.storage
-            .from('vouchers')
-            .getPublicUrl(fileName);
-          proofUrl = urlData.publicUrl;
+          proofUrl = uploadResult.url ?? null;
         }
       }
 
@@ -759,6 +755,7 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
                   <input
                     type="file"
                     accept="image/*"
+                        capture="environment"
                         onChange={(e) => {
                           handleFileChange(e);
                           setProofError(null);
