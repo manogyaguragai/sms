@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
-import { NEPALI_MONTHS } from '@/lib/nepali-date';
+import { NEPALI_MONTHS, getNepaliMonthStartDate, getNepaliPrevMonthRange, getNepaliLast3MonthsStartDate } from '@/lib/nepali-date';
 
 interface DateRange {
   startDate: string; // ISO date string
@@ -107,7 +107,7 @@ export function NepaliDateRangePicker({ value, onChange, className }: NepaliDate
     }
   };
 
-  // Preset handlers
+  // Preset handlers (using Nepali month boundaries)
   const handlePreset = (preset: 'thisMonth' | 'lastMonth' | 'last3Months') => {
     const now = new Date();
     let startDate: Date;
@@ -115,15 +115,17 @@ export function NepaliDateRangePicker({ value, onChange, className }: NepaliDate
 
     switch (preset) {
       case 'thisMonth':
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        startDate = getNepaliMonthStartDate();
         endDate = now;
         break;
-      case 'lastMonth':
-        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+      case 'lastMonth': {
+        const range = getNepaliPrevMonthRange();
+        startDate = range.start;
+        endDate = range.end;
         break;
+      }
       case 'last3Months':
-        startDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+        startDate = getNepaliLast3MonthsStartDate();
         endDate = now;
         break;
     }

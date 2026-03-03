@@ -89,6 +89,51 @@ export function getCurrentNepaliDate(): { year: number; month: number; day: numb
 }
 
 /**
+ * Get the JS Date for the 1st day of the current Nepali month
+ */
+export function getNepaliMonthStartDate(): Date {
+  const nepaliDate = new NepaliDate(new Date());
+  const startOfMonth = new NepaliDate(nepaliDate.getYear(), nepaliDate.getMonth(), 1);
+  return startOfMonth.toJsDate();
+}
+
+/**
+ * Get the JS Date range for the previous Nepali month
+ */
+export function getNepaliPrevMonthRange(): { start: Date; end: Date } {
+  const nepaliDate = new NepaliDate(new Date());
+  let prevMonth = nepaliDate.getMonth() - 1;
+  let prevYear = nepaliDate.getYear();
+  if (prevMonth < 0) {
+    prevMonth = 11;
+    prevYear -= 1;
+  }
+  const start = new NepaliDate(prevYear, prevMonth, 1);
+
+  // End = day before the 1st of current month
+  const currentMonthStart = new NepaliDate(nepaliDate.getYear(), nepaliDate.getMonth(), 1);
+  const endJs = new Date(currentMonthStart.toJsDate());
+  endJs.setDate(endJs.getDate() - 1);
+
+  return { start: start.toJsDate(), end: endJs };
+}
+
+/**
+ * Get the JS Date for the 1st day of 3 Nepali months ago
+ */
+export function getNepaliLast3MonthsStartDate(): Date {
+  const nepaliDate = new NepaliDate(new Date());
+  let month = nepaliDate.getMonth() - 2;
+  let year = nepaliDate.getYear();
+  while (month < 0) {
+    month += 12;
+    year -= 1;
+  }
+  const start = new NepaliDate(year, month, 1);
+  return start.toJsDate();
+}
+
+/**
  * Format date with time in Nepali calendar
  */
 export function formatNepaliDateTime(date: Date | string): string {

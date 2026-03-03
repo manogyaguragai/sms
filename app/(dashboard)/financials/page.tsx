@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { getNepaliMonthStartDate } from '@/lib/nepali-date';
 import { StatsCard } from '@/components/stats-card';
 import { FinancialsAnalytics } from '@/components/financials-analytics';
 import { DollarSign, TrendingUp, TrendingDown, UserPlus } from 'lucide-react';
@@ -40,11 +41,10 @@ async function getFinancialsData() {
     });
   }
 
-  // Calculate collected this month
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  // Calculate collected this month (Nepali month)
+  const nepaliMonthStart = getNepaliMonthStartDate();
   const thisMonthPayments = (allPayments || []).filter(
-    p => new Date(p.payment_date) >= startOfMonth
+    p => new Date(p.payment_date) >= nepaliMonthStart
   );
   const collectedThisMonth = thisMonthPayments.reduce(
     (sum, p) => sum + Number(p.amount_paid),

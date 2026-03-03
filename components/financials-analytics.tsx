@@ -18,7 +18,7 @@ import {
 } from 'recharts';
 import { DollarSign, TrendingUp, Search, ChevronDown, Crown } from 'lucide-react';
 import NepaliDate from 'nepali-date-converter';
-import { NEPALI_MONTHS_SHORT } from '@/lib/nepali-date';
+import { NEPALI_MONTHS_SHORT, getNepaliMonthStartDate } from '@/lib/nepali-date';
 
 interface Subscriber {
   id: string;
@@ -43,9 +43,9 @@ interface DateRange {
 }
 
 export function FinancialsAnalytics({ subscribers, payments }: FinancialsAnalyticsProps) {
-  // Initialize with current month
+  // Initialize with current Nepali month
   const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfMonth = getNepaliMonthStartDate();
   
   // Helper to format date as local YYYY-MM-DD (avoids UTC timezone issues)
   const toLocalDateString = (date: Date): string => {
