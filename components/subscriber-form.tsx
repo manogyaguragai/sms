@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { addMonths, addYears } from 'date-fns';
 import type { Subscriber, SubscriberFormData } from '@/lib/types';
 import { logSubscriberCreation, logSubscriberUpdate } from '@/app/actions/subscriber';
+import { checkPhoneNumberExists } from '@/app/actions/subscriber';
 
 interface SubscriberFormProps {
   subscriber?: Subscriber;
@@ -44,6 +45,18 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
 
     try {
       if (mode === 'create') {
+        // Check for duplicate phone number
+        if (formData.phone) {
+          const duplicateCheck = await checkPhoneNumberExists(formData.phone.trim());
+          if (duplicateCheck.exists) {
+            toast.error(
+              `Phone number "${formData.phone}" is already used by subscriber "${duplicateCheck.subscriberName}". Please use a different number.`
+            );
+            setLoading(false);
+            return;
+          }
+        }
+
         // Calculate subscription end date based on frequency
         const now = new Date();
         const subscriptionEndDate =

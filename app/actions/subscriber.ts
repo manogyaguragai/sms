@@ -148,6 +148,37 @@ export async function checkReceiptNumberExists(
 }
 
 /**
+ * Check if a phone number already exists for any subscriber.
+ * Optionally exclude a specific subscriber ID (useful for edit flows).
+ */
+export async function checkPhoneNumberExists(
+  phone: string,
+  excludeSubscriberId?: string
+): Promise<{ exists: boolean; subscriberName?: string }> {
+  const supabase = createAdminClient();
+
+  let query = supabase
+    .from('subscribers')
+    .select('id, full_name')
+    .eq('phone', phone);
+
+  if (excludeSubscriberId) {
+    query = query.neq('id', excludeSubscriberId);
+  }
+
+  const { data, error } = await query.limit(1);
+
+  if (error || !data || data.length === 0) {
+    return { exists: false };
+  }
+
+  return {
+    exists: true,
+    subscriberName: data[0].full_name || 'Unknown',
+  };
+}
+
+/**
  * Update a payment record - requires UPDATE_PAYMENT permission (super_admin or admin only)
  */
 export async function updatePayment(
