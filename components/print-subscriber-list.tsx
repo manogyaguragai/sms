@@ -235,6 +235,7 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
                   <th>Payments</th>
                   <th>Total Paid</th>
                   <th>Last Payment</th>
+                    <th>Sub. End Date</th>
                 </tr>
               </thead>
               <tbody>
@@ -263,6 +264,11 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
                         ? formatNepaliDate(sub.last_payment_date, 'short')
                         : '—'}
                     </td>
+                    <td>
+                      {sub.subscription_end_date
+                        ? formatNepaliDate(sub.subscription_end_date, 'short')
+                        : '—'}
+                    </td>
                   </tr>
                 ))}
                 {subscribers.length > 0 && (
@@ -272,6 +278,7 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
                       Rs. {grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                     <td></td>
+                      <td></td>
                   </tr>
                 )}
               </tbody>

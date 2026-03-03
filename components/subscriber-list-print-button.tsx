@@ -28,6 +28,7 @@ export function SubscriberListPrintButton() {
           <td class="text-center">${sub.payment_count}</td>
           <td class="text-right" style="font-weight:500">Rs. ${sub.total_paid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
           <td>${sub.last_payment_date ? formatNepaliDate(sub.last_payment_date, 'short') : '—'}</td>
+          <td>${sub.subscription_end_date ? formatNepaliDate(sub.subscription_end_date, 'short') : '—'}</td>
         </tr>
       `).join('');
 
@@ -130,6 +131,7 @@ export function SubscriberListPrintButton() {
                 <th>Payments</th>
                 <th class="text-right">Total Paid</th>
                 <th>Last Payment</th>
+                <th>Sub. End Date</th>
               </tr>
             </thead>
             <tbody>
@@ -137,6 +139,7 @@ export function SubscriberListPrintButton() {
               <tr class="total-row">
                 <td colspan="6" style="text-align:right">Grand Total</td>
                 <td class="text-right">Rs. ${grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                <td></td>
                 <td></td>
               </tr>
             </tbody>
