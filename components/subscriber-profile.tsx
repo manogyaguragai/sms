@@ -200,11 +200,11 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
       </Button>
 
       {/* Header */}
-      <div className="flex items-stretch gap-12">
+      <div className="flex flex-col lg:flex-row lg:items-stretch gap-4 lg:gap-8">
         {/* Left side - Name, badges, and buttons */}
-        <div className="flex flex-col gap-2">
-          <div className="flex items-start gap-4 flex-wrap">
-            <Avatar className="w-14 h-14 md:w-16 md:h-16 bg-blue-600 text-lg md:text-xl shadow-lg ring-4 ring-white shrink-0">
+        <div className="flex flex-col gap-2 min-w-0 flex-shrink-0">
+          <div className="flex items-start gap-3 sm:gap-4">
+            <Avatar className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-blue-600 text-base sm:text-lg md:text-xl shadow-lg ring-4 ring-white shrink-0">
               <AvatarFallback className="bg-transparent text-white">
                 {subscriber.full_name
                   .split(' ')
@@ -213,19 +213,19 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
                   .slice(0, 2)}
               </AvatarFallback>
             </Avatar>
-            <div className="min-w-0">
-              <h1 className="text-xl md:text-2xl font-bold text-gray-900 truncate">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 truncate">
                 {subscriber.full_name}
               </h1>
               {subscriber.referred_by && (
-                <p className="text-sm text-gray-500 truncate">
+                <p className="text-xs sm:text-sm text-gray-500 truncate">
                   Referred by {subscriber.referred_by}
                 </p>
               )}
-              <p className="text-gray-500 text-sm">{subscriber.phone || 'No phone'}</p>
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <p className="text-gray-500 text-xs sm:text-sm">{subscriber.phone || 'No phone'}</p>
+              <div className="flex items-center gap-1.5 sm:gap-2 mt-1 flex-wrap">
                 {getStatusBadge(subscriber.status)}
-                <Badge variant="outline" className="border-gray-200 text-gray-600 capitalize">
+                <Badge variant="outline" className="border-gray-200 text-gray-600 capitalize text-xs sm:text-sm">
                   {subscriber.frequency?.join(', ') || 'N/A'}
                 </Badge>
               </div>
@@ -238,42 +238,42 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
               variant="outline"
               onClick={handleToggleStatus}
               disabled={togglingStatus}
-              className="border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-10"
+              className="border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-9 sm:h-10 text-xs sm:text-sm"
             >
-              {togglingStatus ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Power className="w-4 h-4 mr-2" />}
+              {togglingStatus ? <Loader2 className="w-4 h-4 animate-spin mr-1 sm:mr-2" /> : <Power className="w-4 h-4 mr-1 sm:mr-2" />}
               <span className="hidden sm:inline">{subscriber.status === 'active' ? 'Deactivate' : 'Activate'}</span>
               <span className="sm:hidden">{subscriber.status === 'active' ? 'Off' : 'On'}</span>
             </Button>
             <Button
               variant="outline"
               onClick={() => setShowEditModal(true)}
-              className="border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-10"
+              className="border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-9 sm:h-10 text-xs sm:text-sm"
             >
-              <Edit className="w-4 h-4 mr-2" />
+              <Edit className="w-4 h-4 mr-1 sm:mr-2" />
               Edit
             </Button>
             <Button
               onClick={() => setShowPaymentModal(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white h-10 col-span-2 sm:col-span-1"
+              className="bg-blue-600 hover:bg-blue-700 text-white h-9 sm:h-10 col-span-2 sm:col-span-1 text-xs sm:text-sm"
             >
-              <CreditCard className="w-4 h-4 mr-2" />
+              <CreditCard className="w-4 h-4 mr-1 sm:mr-2" />
               Record Payment
             </Button>
             <Button
               variant="outline"
               onClick={() => setShowStatementDialog(true)}
-              className="border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-10 col-span-2 sm:col-span-1"
+              className="border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-9 sm:h-10 col-span-2 sm:col-span-1 text-xs sm:text-sm"
             >
-              <Printer className="w-4 h-4 mr-2" />
+              <Printer className="w-4 h-4 mr-1 sm:mr-2" />
               Statement
             </Button>
           </div>
         </div>
 
         {/* Payment Period Calendars - one per frequency */}
-        <div className="hidden md:flex items-stretch gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex items-stretch gap-3 lg:flex-1 lg:min-w-0">
           {(subscriber.frequency || []).map((freq) => (
-            <div key={freq} style={{ width: '320px' }}>
+            <div key={freq} className="lg:w-[320px] lg:flex-shrink-0">
               <PaymentPeriodCalendar
                 payments={payments.filter(p => p.payment_for === freq)}
                 frequency={[freq]}
@@ -286,7 +286,7 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {/* Per-frequency Subscription Status Cards */}
         {(subscriber.frequency || []).map((freq) => {
           const date = endDates[freq];
@@ -347,16 +347,16 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 font-medium">{freqLabel} Subscription</p>
-                    <div className="flex items-center gap-3">
-                      <p className="text-lg font-semibold text-gray-900">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+                      <p className="text-base sm:text-lg font-semibold text-gray-900">
                         {freqDays <= 0 ? (
                           <span className="text-red-600">Expired</span>
                         ) : (
                           `${freqDays} days remaining`
                         )}
                       </p>
-                      <Separator orientation="vertical" className="h-4 bg-gray-200" />
-                      <p className="text-sm text-gray-500">
+                      <Separator orientation="vertical" className="h-4 bg-gray-200 hidden sm:block" />
+                      <p className="text-xs sm:text-sm text-gray-500">
                         {freqConsumed > 0 ? freqConsumed : 0} days consumed
                       </p>
                     </div>
@@ -430,7 +430,7 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
       </div>
 
       {/* Details & Payment History */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Contact Info */}
         <Card className="bg-white border-gray-200 shadow-sm">
           <CardHeader>
