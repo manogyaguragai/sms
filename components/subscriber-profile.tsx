@@ -288,13 +288,41 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Per-frequency Subscription Status Cards */}
-        {Object.entries(endDates).map(([freq, date]) => {
+        {(subscriber.frequency || []).map((freq) => {
+          const date = endDates[freq];
+          const freqLabel = freq === '12_hajar' ? '12 Hajar' : freq.charAt(0).toUpperCase() + freq.slice(1);
+          const hasPayments = !!date;
+
+          if (!hasPayments) {
+            // No payments recorded for this frequency — show "Not started"
+            return (
+              <Card key={freq} className="bg-white border-gray-200 shadow-sm">
+                <CardContent className="p-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gray-100">
+                      <Clock className="w-5 h-5 text-gray-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 font-medium">{freqLabel} Subscription</p>
+                      <p className="text-lg font-semibold text-gray-400">Not started</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        No payments recorded yet
+                      </p>
+                    </div>
+                  </div>
+                  <Button size="icon" variant="ghost" className="text-gray-400 hover:text-blue-600" onClick={() => setShowDateDialog(true)}>
+                    <Settings className="w-4 h-4" />
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          }
+
           const freqDays = differenceInDays(startOfDay(new Date(date)), today);
           const freqIntervalStart = freq === 'monthly'
             ? subMonths(startOfDay(new Date(date)), 1)
             : subYears(startOfDay(new Date(date)), 1);
           const freqConsumed = differenceInDays(today, freqIntervalStart);
-          const freqLabel = freq === '12_hajar' ? '12 Hajar' : freq.charAt(0).toUpperCase() + freq.slice(1);
 
           return (
             <Card key={freq} className="bg-white border-gray-200 shadow-sm">
@@ -433,10 +461,19 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
             )}
             <Separator className="bg-gray-200" />
             <div className="space-y-2">
-              <p className="text-sm text-gray-500">Subscription End Date</p>
-              <p className="text-gray-900">
-                {formatNepaliDate(subscriber.subscription_end_date, 'long')}
-              </p>
+              <p className="text-sm text-gray-500">Subscription End Dates</p>
+              {(subscriber.frequency || []).map((freq) => {
+                const freqLabel = freq === '12_hajar' ? '12 Hajar' : freq.charAt(0).toUpperCase() + freq.slice(1);
+                const date = endDates[freq];
+                return (
+                  <div key={freq} className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">{freqLabel}:</span>
+                    <span className="text-gray-900 text-sm">
+                      {date ? formatNepaliDate(date, 'long') : <span className="text-gray-400">Not started</span>}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
             <div className="space-y-2">
               <p className="text-sm text-gray-500">Member Since</p>

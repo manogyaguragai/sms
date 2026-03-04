@@ -212,10 +212,8 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
           }
         }
 
-        const endDates = calculateEndDates(formData.frequency);
-        // Soonest end date
-        const allEndDateValues = Object.values(endDates).map((d) => new Date(d).getTime());
-        const soonestEndDate = new Date(Math.min(...allEndDateValues)).toISOString();
+        const endDates: Record<string, string> = {}; // No end dates until payments are recorded
+        const soonestEndDate = new Date().toISOString(); // Placeholder
 
         const { data, error: insertError } = await supabase.from('subscribers').insert({
           full_name: formData.full_name,
@@ -240,10 +238,7 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
         router.refresh();
       } else if (subscriber) {
         // EDIT existing subscriber
-        const endDates = calculateEndDates(formData.frequency);
-        const allEndDateValues = Object.values(endDates).map((d) => new Date(d).getTime());
-        const soonestEndDate = new Date(Math.min(...allEndDateValues)).toISOString();
-
+        // EDIT - do NOT recalculate or overwrite end dates, only update subscriber info
         const { error: updateError } = await supabase
           .from('subscribers')
           .update({
@@ -253,8 +248,6 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
             frequency: formData.frequency,
             reminder_days_before: formData.reminder_days_before,
             referred_by: formData.referred_by || null,
-            subscription_end_dates: endDates,
-            subscription_end_date: soonestEndDate,
           })
           .eq('id', subscriber.id);
 

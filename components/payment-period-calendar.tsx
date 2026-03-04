@@ -146,11 +146,9 @@ export function PaymentPeriodCalendar({
               {freq !== 'default' && (
                 <div className={`text-sm font-bold uppercase tracking-wide mb-2 px-3 py-1.5 rounded flex items-center justify-between ${colors.bg} ${colors.text} ${colors.border} border`}>
                   <span>{colors.label}</span>
-                  {endDateStr && (
-                    <span className="text-xs font-medium opacity-80">
-                      Ends: {formatNepaliDate(endDateStr, 'short')}
-                    </span>
-                  )}
+                  <span className="text-xs font-medium opacity-80">
+                    {endDateStr ? `Ends: ${formatNepaliDate(endDateStr, 'short')}` : 'Not started'}
+                  </span>
                 </div>
               )}
 

@@ -397,37 +397,11 @@ export async function updateSubscriberFrequencies(
     const existingFreqs: string[] = subscriber.frequency || [];
     const mergedFreqs = [...new Set([...existingFreqs, ...newFrequencies])];
 
-    // Calculate end dates for new frequencies only (keep existing end dates)
-    const now = new Date();
-    const existingEndDates: Record<string, string> = subscriber.subscription_end_dates || {};
-    const updatedEndDates: Record<string, string> = { ...existingEndDates };
-
-    for (const freq of newFrequencies) {
-      if (!updatedEndDates[freq]) {
-        // New frequency — set its end date
-        if (freq === 'monthly') {
-          const endDate = new Date(now);
-          endDate.setMonth(endDate.getMonth() + 1);
-          updatedEndDates[freq] = endDate.toISOString();
-        } else {
-          // annual and 12_hajar are yearly
-          const endDate = new Date(now);
-          endDate.setFullYear(endDate.getFullYear() + 1);
-          updatedEndDates[freq] = endDate.toISOString();
-        }
-      }
-    }
-
-    // Soonest end date across all frequencies
-    const allEndDates = Object.values(updatedEndDates).map(d => new Date(d).getTime());
-    const soonestEndDate = new Date(Math.min(...allEndDates)).toISOString();
-
+    // Do NOT create end dates for new frequencies — they will be set when payments are recorded
     const { error: updateError } = await supabase
       .from('subscribers')
       .update({
         frequency: mergedFreqs,
-        subscription_end_dates: updatedEndDates,
-        subscription_end_date: soonestEndDate,
         status: 'active',
       })
       .eq('id', subscriberId);
@@ -436,7 +410,6 @@ export async function updateSubscriberFrequencies(
 
     await logSubscriberUpdated(subscriberId, subscriber.full_name, {
       frequency: mergedFreqs,
-      subscription_end_dates: updatedEndDates,
     });
 
     revalidatePath(`/subscribers/${subscriberId}`);

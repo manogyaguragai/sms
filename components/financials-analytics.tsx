@@ -30,11 +30,15 @@ interface Payment {
   subscriber_id: string;
   amount_paid: number;
   payment_date: string;
+  payment_for?: string | null;
 }
+
+type SubscriptionType = 'all' | 'regular' | '12_hajar';
 
 interface FinancialsAnalyticsProps {
   subscribers: Subscriber[];
   payments: Payment[];
+  subscriptionType: SubscriptionType;
 }
 
 interface DateRange {
@@ -42,7 +46,14 @@ interface DateRange {
   endDate: string;
 }
 
-export function FinancialsAnalytics({ subscribers, payments }: FinancialsAnalyticsProps) {
+function matchesSubscriptionType(paymentFor: string | null | undefined, type: SubscriptionType): boolean {
+  if (type === 'all') return true;
+  if (type === '12_hajar') return paymentFor === '12_hajar';
+  // regular: monthly, annually, or untagged (null/undefined)
+  return !paymentFor || paymentFor === 'monthly' || paymentFor === 'annually';
+}
+
+export function FinancialsAnalytics({ subscribers, payments, subscriptionType }: FinancialsAnalyticsProps) {
   // Initialize with current Nepali month
   const now = new Date();
   const startOfMonth = getNepaliMonthStartDate();
@@ -68,7 +79,7 @@ export function FinancialsAnalytics({ subscribers, payments }: FinancialsAnalyti
   // Toggle for grouping by month or year
   const [groupBy, setGroupBy] = useState<'month' | 'year'>('month');
 
-  // Filter payments by date range
+  // Filter payments by date range and subscription type
   const filteredPayments = useMemo(() => {
     const start = new Date(dateRange.startDate);
     start.setHours(0, 0, 0, 0); // Include full start day (inclusive)
@@ -77,9 +88,10 @@ export function FinancialsAnalytics({ subscribers, payments }: FinancialsAnalyti
     
     return payments.filter(p => {
       const paymentDate = new Date(p.payment_date);
-      return paymentDate >= start && paymentDate <= end;
+      if (paymentDate < start || paymentDate > end) return false;
+      return matchesSubscriptionType(p.payment_for, subscriptionType);
     });
-  }, [payments, dateRange]);
+  }, [payments, dateRange, subscriptionType]);
 
   // Calculate analytics
   const analytics = useMemo(() => {
