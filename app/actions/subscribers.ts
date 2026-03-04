@@ -114,7 +114,7 @@ export async function getSubscribersPaginated(
 
   // Apply frequency filter
   if (frequency && frequency !== 'all') {
-    query = query.eq('frequency', frequency);
+    query = query.contains('frequency', [frequency]);
   }
 
   // Apply ordering and pagination

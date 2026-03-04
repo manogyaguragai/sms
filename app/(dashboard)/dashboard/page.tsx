@@ -80,13 +80,18 @@ async function getDashboardData() {
     .slice(0, 3);
 
   // Plan distribution for chart
-  const planCounts = { monthly: 0, yearly: 0 };
+  const planCounts = { monthly: 0, yearly: 0, twelveHajar: 0 };
   if (subscribers) {
     subscribers.forEach((sub: Subscriber) => {
-      if (sub.frequency === 'monthly') {
-        planCounts.monthly++;
-      } else {
-        planCounts.yearly++;
+      const freqs = Array.isArray(sub.frequency) ? sub.frequency : [sub.frequency];
+      for (const freq of freqs) {
+        if (freq === 'monthly') {
+          planCounts.monthly++;
+        } else if (freq === '12_hajar') {
+          planCounts.twelveHajar++;
+        } else {
+          planCounts.yearly++;
+        }
       }
     });
   }
@@ -110,6 +115,7 @@ async function getDashboardData() {
     plans: [
       { name: 'Monthly', value: planCounts.monthly },
       { name: 'Yearly', value: planCounts.yearly },
+      { name: '12 Hajar', value: planCounts.twelveHajar },
     ].filter(i => i.value > 0)
   };
 

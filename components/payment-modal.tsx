@@ -35,7 +35,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Loader2, Upload, FileText, Image as ImageIcon, Calendar, ChevronLeft, ChevronRight, Check, Receipt, CreditCard, HelpCircle, AlertTriangle } from 'lucide-react';
+import { Loader2, Upload, FileText, Image as ImageIcon, Calendar, ChevronLeft, ChevronRight, Check, Receipt, CreditCard, HelpCircle, AlertTriangle, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth } from 'date-fns';
 import imageCompression from 'browser-image-compression';
@@ -67,6 +67,10 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
   const [paymentMode, setPaymentMode] = useState<'online_transfer' | 'physical_transfer' | ''>('');
   const [paymentDate, setPaymentDate] = useState<Date>(() => new Date());
   const [amount, setAmount] = useState<string>(''); // Manual amount entry
+  const [paymentFor, setPaymentFor] = useState<string>(() => {
+    const freqs = subscriber.frequency || [];
+    return freqs.length === 1 ? freqs[0] : '';
+  });
   const [proofError, setProofError] = useState<string | null>(null);
   const [periodError, setPeriodError] = useState<string | null>(null);
   const [receiptError, setReceiptError] = useState<string | null>(null);
@@ -99,6 +103,8 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
       setShowConflictDialog(false);
       setConflictingPayments([]);
       setPendingProofUrl(null);
+      const freqs = subscriber.frequency || [];
+      setPaymentFor(freqs.length === 1 ? freqs[0] : '');
     }
   }, [open]);
 
@@ -330,6 +336,7 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
       receipt_number: receiptNumber || null,
       payment_mode: paymentMode || null,
       payment_date: new Date(paymentDate).toISOString(),
+      payment_for: paymentFor || null,
     }).select('id').single();
 
     if (paymentError) throw paymentError;
@@ -356,10 +363,23 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
 
     const newEndDate = calculateEndDateFromPeriods(allPeriods);
 
+    // Build per-frequency end dates update
+    const currentEndDates: Record<string, string> = subscriber.subscription_end_dates || {};
+    const updatedEndDates = { ...currentEndDates };
+    if (paymentFor) {
+      updatedEndDates[paymentFor] = newEndDate.toISOString();
+    }
+    // Soonest end date across all frequencies
+    const allEndDateValues = Object.values(updatedEndDates).map(d => new Date(d).getTime());
+    const soonestEndDate = allEndDateValues.length > 0
+      ? new Date(Math.min(...allEndDateValues)).toISOString()
+      : newEndDate.toISOString();
+
     const { error: updateError } = await supabase
       .from('subscribers')
       .update({
-        subscription_end_date: newEndDate.toISOString(),
+        subscription_end_date: soonestEndDate,
+        subscription_end_dates: updatedEndDates,
         status: 'active',
         status_notes: null,
       })
@@ -374,6 +394,12 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validation: Check if payment_for is selected (when subscriber has multiple frequencies)
+    if (!paymentFor && (subscriber.frequency || []).length > 1) {
+      toast.error('Please select which subscription this payment is for');
+      return;
+    }
 
     // Validation: Check if at least one month is selected
     if (selectedMonths.length === 0) {
@@ -532,7 +558,19 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
       setShowConflictDialog(false);
       setConflictingPayments([]);
       setPendingProofUrl(null);
+      const freqs = subscriber.frequency || [];
+      setPaymentFor(freqs.length === 1 ? freqs[0] : '');
       onClose();
+    }
+  };
+
+  // Label helper for frequency
+  const getFrequencyLabel = (freq: string) => {
+    switch (freq) {
+      case 'monthly': return 'Monthly';
+      case 'annually': return 'Annually';
+      case '12_hajar': return '12 Hajar';
+      default: return freq.charAt(0).toUpperCase() + freq.slice(1);
     }
   };
 
@@ -548,6 +586,28 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-4 pr-2">
+            {/* Payment For (Subscription Type) */}
+            {(subscriber.frequency || []).length > 1 && (
+              <div className="space-y-2">
+                <Label className="text-gray-700 flex items-center gap-2">
+                  <Tag className="w-4 h-4" />
+                  Payment For *
+                </Label>
+                <Select value={paymentFor} onValueChange={(value: string) => setPaymentFor(value)}>
+                  <SelectTrigger className="bg-white border-gray-300 text-gray-900">
+                    <SelectValue placeholder="Select subscription type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(subscriber.frequency || []).map((freq) => (
+                      <SelectItem key={freq} value={freq}>
+                        {getFrequencyLabel(freq)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
           {/* Payment Period Selector */}
           <div className="space-y-2">
             <Label className="text-gray-700 flex items-center gap-2">
@@ -605,7 +665,7 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
                     ? <span className="text-gray-400">None selected</span>
                     : getSelectedPeriodsLabel()
                   }
-                {subscriber.frequency === 'monthly' && selectedMonths.length > 1 && (
+                  {(Array.isArray(subscriber.frequency) ? (subscriber.frequency.includes('monthly') || subscriber.frequency.includes('12_hajar')) : (subscriber.frequency === 'monthly' || subscriber.frequency === '12_hajar')) && selectedMonths.length > 1 && (
                   <span className="text-blue-600 ml-2">({selectedMonths.length} months)</span>
                 )}
               </div>

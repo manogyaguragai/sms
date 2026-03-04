@@ -74,23 +74,22 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
   const [updatingDate, setUpdatingDate] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
 
-  // Pagination state for payment history
-  const [currentPage, setCurrentPage] = useState(1);
+  // Pagination state for payment history (per-frequency independent pages)
+  const [currentPages, setCurrentPages] = useState<Record<string, number>>({});
   const [recordsPerPage, setRecordsPerPage] = useState(5);
 
-  // Paginated payments
-  const totalPages = Math.ceil(payments.length / recordsPerPage);
-  const startIndex = (currentPage - 1) * recordsPerPage;
-  const endIndex = startIndex + recordsPerPage;
-  const paginatedPayments = payments.slice(startIndex, endIndex);
 
   // Derived calculations - normalize to start of day for accurate day comparison
   const today = startOfDay(new Date());
   const endDate = startOfDay(new Date(subscriber.subscription_end_date));
   const daysRemaining = differenceInDays(endDate, today);
   
-  // Calculate consumed days (Assuming simplified cycle based on frequency)
-  const currentIntervalStart = subscriber.frequency === 'monthly' 
+  // Per-frequency end dates
+  const endDates: Record<string, string> = subscriber.subscription_end_dates || {};
+
+  // Calculate consumed days using soonest end date
+  const soonestFreq = subscriber.frequency?.find(f => endDates[f]) || subscriber.frequency?.[0] || 'monthly';
+  const currentIntervalStart = soonestFreq === 'monthly' 
     ? subMonths(endDate, 1) 
     : subYears(endDate, 1);
   const daysConsumed = differenceInDays(today, currentIntervalStart);
@@ -227,7 +226,7 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 {getStatusBadge(subscriber.status)}
                 <Badge variant="outline" className="border-gray-200 text-gray-600 capitalize">
-                  {subscriber.frequency}
+                  {subscriber.frequency?.join(', ') || 'N/A'}
                 </Badge>
               </div>
             </div>
@@ -271,43 +270,105 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
           </div>
         </div>
 
-        {/* Payment Period Calendar - positioned after buttons with gap */}
-        <div className="hidden md:flex items-stretch" style={{ width: '220px' }}>
-          <PaymentPeriodCalendar
-            payments={payments}
-            className="w-full h-full"
-          />
+        {/* Payment Period Calendars - one per frequency */}
+        <div className="hidden md:flex items-stretch gap-3">
+          {(subscriber.frequency || []).map((freq) => (
+            <div key={freq} style={{ width: '320px' }}>
+              <PaymentPeriodCalendar
+                payments={payments.filter(p => p.payment_for === freq)}
+                frequency={[freq]}
+                subscriptionEndDates={subscriber.subscription_end_dates}
+                className="w-full h-full"
+              />
+            </div>
+          ))}
         </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Subscription Status Card */}
-        <Card className="bg-white border-gray-200 shadow-sm col-span-1 lg:col-span-2">
-          <CardContent className="p-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div
-                className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                  daysRemaining <= 0
+        {/* Per-frequency Subscription Status Cards */}
+        {Object.entries(endDates).map(([freq, date]) => {
+          const freqDays = differenceInDays(startOfDay(new Date(date)), today);
+          const freqIntervalStart = freq === 'monthly'
+            ? subMonths(startOfDay(new Date(date)), 1)
+            : subYears(startOfDay(new Date(date)), 1);
+          const freqConsumed = differenceInDays(today, freqIntervalStart);
+          const freqLabel = freq === '12_hajar' ? '12 Hajar' : freq.charAt(0).toUpperCase() + freq.slice(1);
+
+          return (
+            <Card key={freq} className="bg-white border-gray-200 shadow-sm">
+              <CardContent className="p-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center ${freqDays <= 0
+                      ? 'bg-red-50'
+                      : freqDays <= 7
+                        ? 'bg-amber-50'
+                        : 'bg-green-50'
+                      }`}
+                  >
+                    <Clock
+                      className={`w-5 h-5 ${freqDays <= 0
+                        ? 'text-red-600'
+                        : freqDays <= 7
+                          ? 'text-amber-600'
+                          : 'text-green-600'
+                        }`}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 font-medium">{freqLabel} Subscription</p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-lg font-semibold text-gray-900">
+                        {freqDays <= 0 ? (
+                          <span className="text-red-600">Expired</span>
+                        ) : (
+                          `${freqDays} days remaining`
+                        )}
+                      </p>
+                      <Separator orientation="vertical" className="h-4 bg-gray-200" />
+                      <p className="text-sm text-gray-500">
+                        {freqConsumed > 0 ? freqConsumed : 0} days consumed
+                      </p>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      Ends: {formatNepaliDate(date, 'short')}
+                    </p>
+                  </div>
+                </div>
+                <Button size="icon" variant="ghost" className="text-gray-400 hover:text-blue-600" onClick={() => setShowDateDialog(true)}>
+                  <Settings className="w-4 h-4" />
+                </Button>
+              </CardContent>
+            </Card>
+          );
+        })}
+
+        {/* Fallback: if no end dates but subscriber has frequency */}
+        {Object.keys(endDates).length === 0 && (
+          <Card className="bg-white border-gray-200 shadow-sm col-span-1 lg:col-span-2">
+            <CardContent className="p-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center ${daysRemaining <= 0
                     ? 'bg-red-50'
                     : daysRemaining <= 7
-                    ? 'bg-amber-50'
-                    : 'bg-green-50'
-                }`}
-              >
-                <Clock
-                  className={`w-5 h-5 ${
-                    daysRemaining <= 0
+                      ? 'bg-amber-50'
+                      : 'bg-green-50'
+                    }`}
+                >
+                  <Clock
+                    className={`w-5 h-5 ${daysRemaining <= 0
                       ? 'text-red-600'
                       : daysRemaining <= 7
-                      ? 'text-amber-600'
-                      : 'text-green-600'
-                  }`}
-                />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Subscription Status</p>
-                <div className="flex items-center gap-3">
+                        ? 'text-amber-600'
+                        : 'text-green-600'
+                      }`}
+                  />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Subscription Status</p>
                   <p className="text-lg font-semibold text-gray-900">
                     {daysRemaining <= 0 ? (
                       <span className="text-red-600">Expired</span>
@@ -315,18 +376,14 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
                       `${daysRemaining} days remaining`
                     )}
                   </p>
-                  <Separator orientation="vertical" className="h-4 bg-gray-200" />
-                  <p className="text-sm text-gray-500">
-                    {daysConsumed > 0 ? daysConsumed : 0} days consumed
-                  </p>
                 </div>
               </div>
-            </div>
-            <Button size="icon" variant="ghost" className="text-gray-400 hover:text-blue-600" onClick={() => setShowDateDialog(true)}>
-              <Settings className="w-4 h-4" />
-            </Button>
-          </CardContent>
-        </Card>
+              <Button size="icon" variant="ghost" className="text-gray-400 hover:text-blue-600" onClick={() => setShowDateDialog(true)}>
+                <Settings className="w-4 h-4" />
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Last Paid Date */}
         <Card className="bg-white border-gray-200 shadow-sm">
@@ -401,138 +458,143 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
           </CardContent>
         </Card>
 
-        {/* Payment History */}
-        <Card className="bg-white border-gray-200 shadow-sm lg:col-span-2">
-          <CardHeader>
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <CardTitle className="text-gray-900 text-lg flex items-center gap-2">
-                <Receipt className="w-5 h-5 text-emerald-600" />
-                Payment History
-                {payments.length > 0 && (
-                  <span className="text-sm font-normal text-gray-500">
-                    ({payments.length} total)
-                  </span>
-                )}
-              </CardTitle>
-              {payments.length > 0 && (
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-gray-500">Show:</span>
-                  <select
-                    value={recordsPerPage}
-                    onChange={(e) => {
-                      setRecordsPerPage(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="border border-gray-200 rounded-md px-2 py-1 text-sm bg-white text-gray-700"
-                  >
-                    <option value={5}>5</option>
-                    <option value={10}>10</option>
-                    <option value={20}>20</option>
-                  </select>
-                </div>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {payments.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                  <CreditCard className="w-8 h-8 text-gray-400" />
-                </div>
-                <p className="text-gray-500">No payments recorded yet</p>
-                <Button
-                  onClick={() => setShowPaymentModal(true)}
-                  className="mt-4 bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  Record First Payment
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                  {paginatedPayments.map((payment) => (
-                  <div
-                    key={payment.id}
-                    onClick={() => {
-                      setSelectedPayment(payment);
-                      setShowPaymentDetailModal(true);
-                    }}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors gap-3 sm:gap-4"
-                  >
-                    <div className="flex items-start sm:items-center gap-4 w-full sm:w-auto">
-                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center shrink-0">
-                        <DollarSign className="w-5 h-5 text-green-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-medium text-gray-900">
-                            Rs. {Number(payment.amount_paid).toFixed(2)}
-                          </p>
-                          {payment.notes && payment.notes.includes('Payment for:') && (
-                            <Badge
-                              variant="outline"
-                              className="text-xs border-blue-200 text-blue-700 bg-blue-50 max-w-[200px] truncate block"
-                              title={payment.notes.match(/Payment for:\s*([^|]+)/)?.[1]?.trim() || ''}
-                            >
-                              For: {payment.notes.match(/Payment for:\s*([^|]+)/)?.[1]?.trim() || ''}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-500">
-                          {formatNepaliDateTime(payment.payment_date)}
-                        </p>
-                      </div>
-                    </div>
+        {/* Payment History — Separate cards per subscription */}
+        {(() => {
+          const frequencies = subscriber.frequency || [];
+          const untaggedPayments = payments.filter(p => !p.payment_for);
+          const hasUntagged = untaggedPayments.length > 0;
+          const getFreqLabel = (f: string) => f === 'monthly' ? 'Monthly' : f === 'annually' ? 'Annually' : f === '12_hajar' ? '12 Hajar' : f;
 
-                    <div className="flex items-center gap-2 ml-14 sm:ml-0 self-start sm:self-auto">
-                      {payment.proof_url && (
-                        <Badge variant="outline" className="text-xs border-green-200 text-green-700 bg-green-50">
-                          Has Proof
-                        </Badge>
-                      )}
-                      {payment.receipt_number && (
-                        <Badge variant="outline" className="text-xs border-gray-200 text-gray-600 bg-white">
-                          Receipt
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                ))}
+          const columns = [
+            ...frequencies.map(f => ({
+              key: f,
+              label: `Payment for ${getFreqLabel(f)}`,
+              payments: payments.filter(p => p.payment_for === f),
+            })),
+            ...(hasUntagged ? [{ key: '_other', label: 'Other Payments', payments: untaggedPayments }] : []),
+          ];
 
-                  {/* Pagination Controls */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                      <p className="text-sm text-gray-500">
-                        Showing {startIndex + 1}-{Math.min(endIndex, payments.length)} of {payments.length}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                          disabled={currentPage === 1}
-                          className="h-8 px-2"
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                        </Button>
-                        <span className="text-sm text-gray-600 px-2">
-                          Page {currentPage} of {totalPages}
+          const getPage = (key: string) => currentPages[key] || 1;
+          const setPage = (key: string, page: number) => setCurrentPages(prev => ({ ...prev, [key]: page }));
+
+          return columns.map(col => {
+            const colPage = getPage(col.key);
+            const colTotalPages = Math.ceil(col.payments.length / recordsPerPage);
+            const colStart = (colPage - 1) * recordsPerPage;
+            const colEnd = colStart + recordsPerPage;
+            const colPaginated = col.payments.slice(colStart, colEnd);
+
+            return (
+              <Card key={col.key} className="bg-white border-gray-200 shadow-sm">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <CardTitle className="text-gray-900 text-base flex items-center gap-2">
+                      <Receipt className="w-4 h-4 text-emerald-600" />
+                      {col.label}
+                      {col.payments.length > 0 && (
+                        <span className="text-sm font-normal text-gray-500">
+                          ({col.payments.length})
                         </span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                          disabled={currentPage === totalPages}
-                          className="h-8 px-2"
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </Button>
+                      )}
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {col.payments.length === 0 ? (
+                    <div className="text-center py-6">
+                      <div className="w-12 h-12 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                        <CreditCard className="w-6 h-6 text-gray-400" />
                       </div>
+                      <p className="text-gray-500 text-sm">No payments yet</p>
+                    </div>
+                  ) : (
+                      <div className="space-y-2">
+                        {colPaginated.map((payment) => (
+                          <div
+                            key={payment.id}
+                            onClick={() => {
+                              setSelectedPayment(payment);
+                              setShowPaymentDetailModal(true);
+                            }}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors gap-2 sm:gap-3"
+                          >
+                            <div className="flex items-start sm:items-center gap-3 w-full sm:w-auto">
+                              <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center shrink-0">
+                                <DollarSign className="w-4 h-4 text-green-600" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="font-medium text-gray-900 text-sm">
+                                    Rs. {Number(payment.amount_paid).toFixed(2)}
+                                  </p>
+                                  {payment.notes && payment.notes.includes('Payment for:') && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs border-blue-200 text-blue-700 bg-blue-50 max-w-[160px] truncate block"
+                                      title={payment.notes.match(/Payment for:\s*([^|]+)/)?.[1]?.trim() || ''}
+                                    >
+                                      {payment.notes.match(/Payment for:\s*([^|]+)/)?.[1]?.trim() || ''}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-500">
+                                  {formatNepaliDateTime(payment.payment_date)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 ml-11 sm:ml-0 self-start sm:self-auto">
+                              {payment.proof_url && (
+                                <Badge variant="outline" className="text-xs border-green-200 text-green-700 bg-green-50">
+                                  Proof
+                                </Badge>
+                              )}
+                              {payment.receipt_number && (
+                                <Badge variant="outline" className="text-xs border-gray-200 text-gray-600 bg-white">
+                                  Receipt
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Pagination */}
+                        {colTotalPages > 1 && (
+                          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                            <p className="text-xs text-gray-500">
+                              {colStart + 1}-{Math.min(colEnd, col.payments.length)} of {col.payments.length}
+                            </p>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(col.key, Math.max(1, colPage - 1))}
+                                disabled={colPage === 1}
+                                className="h-7 w-7 p-0"
+                              >
+                                <ChevronLeft className="w-3 h-3" />
+                              </Button>
+                              <span className="text-xs text-gray-600 px-1">
+                                {colPage}/{colTotalPages}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(col.key, Math.min(colTotalPages, colPage + 1))}
+                                disabled={colPage === colTotalPages}
+                                className="h-7 w-7 p-0"
+                              >
+                              <ChevronRight className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                </CardContent>
+              </Card>
+            );
+          });
+        })()}
       </div>
 
       {/* Payment Modal */}
@@ -557,6 +619,7 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
           setShowPaymentDetailModal(false);
           setSelectedPayment(null);
         }}
+        subscriberFrequencies={subscriber.frequency || []}
       />
 
       {/* Edit Modal */}

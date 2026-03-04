@@ -15,12 +15,22 @@ if (CLIENT_ID && CLIENT_SECRET) {
   notificationapi.init(CLIENT_ID, CLIENT_SECRET);
 }
 
+function freqLabel(freq: string): string {
+  switch (freq) {
+    case 'monthly': return 'Monthly';
+    case 'annually': return 'Annually';
+    case '12_hajar': return '12 Hajar';
+    default: return freq.charAt(0).toUpperCase() + freq.slice(1);
+  }
+}
+
 interface SubscriberReminder {
   name: string;
   email: string | null;
   daysUntilExpiry: number;
   subscriptionEndDate: string;
   monthlyRate: number;
+  frequency: string;
 }
 
 interface AdminReminderSMSProps {
@@ -44,7 +54,7 @@ export async function sendAdminReminderSMS({ subscribers }: AdminReminderSMSProp
 
   // Format subscriber info for SMS (keeping it concise for SMS)
   const subscriberList = subscribers
-    .map(sub => `${sub.name}: ${sub.daysUntilExpiry}d left`)
+    .map(sub => `${sub.name} (${freqLabel(sub.frequency)}): ${sub.daysUntilExpiry}d left`)
     .join(', ');
 
   const message = `📋 SubTrack Alert: ${subscribers.length} subscription${subscribers.length === 1 ? '' : 's'} expiring soon. ${subscriberList}. Check your email for details.`;
@@ -106,6 +116,7 @@ interface InactiveSubscriberInfo {
   email: string | null;
   subscriptionEndDate: string;
   daysOverdue: number;
+  frequency: string;
 }
 
 interface InactiveSubscriberSMSProps {
@@ -129,7 +140,7 @@ export async function sendInactiveSubscriberSMS({ subscribers }: InactiveSubscri
 
   // Format subscriber info for SMS (keeping it concise for SMS)
   const subscriberList = subscribers
-    .map(sub => `${sub.name}: ${sub.daysOverdue}d overdue`)
+    .map(sub => `${sub.name} (${freqLabel(sub.frequency)}): ${sub.daysOverdue}d overdue`)
     .join(', ');
 
   const message = `🚫 SubTrack Alert: ${subscribers.length} subscriber${subscribers.length === 1 ? '' : 's'} marked INACTIVE due to non-payment. ${subscriberList}. Check email for details.`;

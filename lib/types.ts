@@ -64,10 +64,11 @@ export interface Subscriber {
   email: string | null;
   phone: string | null;
   status: 'active' | 'expired' | 'cancelled' | 'inactive';
-  frequency: 'monthly' | 'annual';
+  frequency: string[];
   monthly_rate: number;
   reminder_days_before: number;
   subscription_end_date: string;
+  subscription_end_dates: Record<string, string>;
   created_at: string;
   status_notes: string | null;
   referred_by: string | null;
@@ -83,6 +84,7 @@ export interface Payment {
   payment_for_period: string | null;
   receipt_number: string | null;
   payment_mode: 'online_transfer' | 'physical_transfer' | null;
+  payment_for: string | null;
 }
 
 export interface PaymentWithSubscriber extends Payment {
@@ -97,7 +99,7 @@ export interface SubscriberFormData {
   full_name: string;
   email?: string;
   phone?: string;
-  frequency: 'monthly' | 'annual';
+  frequency: string[];
   reminder_days_before: number;
   referred_by?: string;
 }
@@ -106,6 +108,7 @@ export interface PaymentFormData {
   amount_paid: number;
   notes?: string;
   proof_file?: File;
+  payment_for?: string;
 }
 
 // Dashboard stats
