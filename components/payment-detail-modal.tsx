@@ -51,6 +51,7 @@ import {
   Upload,
   ChevronLeft,
   ChevronRight,
+  Tag,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Payment } from '@/lib/types';
@@ -63,6 +64,7 @@ interface PaymentDetailModalProps {
   payment: Payment | null;
   open: boolean;
   onClose: () => void;
+  subscriberFrequencies?: string[];
 }
 
 interface SelectedPeriod {
@@ -70,7 +72,7 @@ interface SelectedPeriod {
   year: number;
 }
 
-export function PaymentDetailModal({ payment, open, onClose }: PaymentDetailModalProps) {
+export function PaymentDetailModal({ payment, open, onClose, subscriberFrequencies = [] }: PaymentDetailModalProps) {
   const router = useRouter();
   const supabase = createClient();
   const { hasPermission } = useRole();
@@ -89,6 +91,7 @@ export function PaymentDetailModal({ payment, open, onClose }: PaymentDetailModa
   const [editNotes, setEditNotes] = useState('');
   const [editReceiptNumber, setEditReceiptNumber] = useState('');
   const [editPaymentMode, setEditPaymentMode] = useState<'online_transfer' | 'physical_transfer' | ''>('');
+  const [editPaymentFor, setEditPaymentFor] = useState<string>('');
   const [receiptError, setReceiptError] = useState<string | null>(null);
 
   // Image edit state
@@ -135,6 +138,7 @@ export function PaymentDetailModal({ payment, open, onClose }: PaymentDetailModa
       setEditNotes(notes);
       setEditReceiptNumber(payment.receipt_number || '');
       setEditPaymentMode(payment.payment_mode || '');
+      setEditPaymentFor(payment.payment_for || '');
       setReceiptError(null);
       setEditFile(null);
       setEditPreview(null);
@@ -166,6 +170,15 @@ export function PaymentDetailModal({ payment, open, onClose }: PaymentDetailModa
         return 'Physical Transfer';
       default:
         return 'Not specified';
+    }
+  };
+
+  const getFrequencyLabel = (freq: string) => {
+    switch (freq) {
+      case 'monthly': return 'Monthly';
+      case 'annually': return 'Annually';
+      case '12_hajar': return '12 Hajar';
+      default: return freq.charAt(0).toUpperCase() + freq.slice(1);
     }
   };
 
@@ -278,6 +291,7 @@ export function PaymentDetailModal({ payment, open, onClose }: PaymentDetailModa
         notes: combinedNotes,
         receipt_number: editReceiptNumber || null,
         payment_mode: editPaymentMode || null,
+        payment_for: editPaymentFor || null,
       };
 
       if (proofUrl !== undefined) {
@@ -328,6 +342,7 @@ export function PaymentDetailModal({ payment, open, onClose }: PaymentDetailModa
     setEditReceiptNumber(payment.receipt_number || '');
     setReceiptError(null);
     setEditPaymentMode(payment.payment_mode || '');
+    setEditPaymentFor(payment.payment_for || '');
     setEditFile(null);
     setEditPreview(null);
     setRemoveExistingImage(false);
@@ -400,6 +415,42 @@ export function PaymentDetailModal({ payment, open, onClose }: PaymentDetailModa
                   </div>
                 </div>
             )}
+
+            <Separator className="bg-gray-200" />
+
+            {/* Payment For (Subscription Type) */}
+            {isEditing ? (
+              subscriberFrequencies.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-gray-700 flex items-center gap-2">
+                    <Tag className="w-4 h-4" />
+                    Payment For (Subscription)
+                  </Label>
+                  <Select value={editPaymentFor} onValueChange={(value: string) => setEditPaymentFor(value)}>
+                    <SelectTrigger className="bg-white border-gray-300 text-gray-900">
+                      <SelectValue placeholder="Select subscription type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subscriberFrequencies.map((freq) => (
+                        <SelectItem key={freq} value={freq}>
+                          {getFrequencyLabel(freq)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )
+            ) : payment.payment_for ? (
+              <div className="flex items-start gap-3">
+                <Tag className="w-5 h-5 text-gray-400 mt-0.5" />
+                <div>
+                  <p className="text-sm text-gray-500">Payment For</p>
+                  <Badge variant="outline" className="border-purple-200 text-purple-700 bg-purple-50 mt-1">
+                    {getFrequencyLabel(payment.payment_for)}
+                  </Badge>
+                </div>
+              </div>
+            ) : null}
 
             <Separator className="bg-gray-200" />
 

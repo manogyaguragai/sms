@@ -84,6 +84,7 @@ export interface Payment {
   payment_for_period: string | null;
   receipt_number: string | null;
   payment_mode: 'online_transfer' | 'physical_transfer' | null;
+  payment_for: string | null;
 }
 
 export interface PaymentWithSubscriber extends Payment {
@@ -107,6 +108,7 @@ export interface PaymentFormData {
   amount_paid: number;
   notes?: string;
   proof_file?: File;
+  payment_for?: string;
 }
 
 // Dashboard stats
