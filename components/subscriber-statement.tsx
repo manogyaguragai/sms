@@ -15,7 +15,7 @@ import { NepaliDatePicker } from '@/components/nepali-date-picker';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Printer, Loader2, Calendar, Clock, User, Phone, Mail, CreditCard, Receipt } from 'lucide-react';
+import { Printer, Loader2, Calendar, Clock, User, Phone, Mail, CreditCard, Receipt, Filter } from 'lucide-react';
 import type { Subscriber, Payment } from '@/lib/types';
 import NepaliDate from 'nepali-date-converter';
 
@@ -31,6 +31,41 @@ interface GroupedPayments {
   payments: Payment[];
   subtotal: number;
 }
+
+interface SubscriptionGroup {
+  frequency: string;
+  label: string;
+  payments: Payment[];
+  monthGroups: GroupedPayments[];
+  subtotal: number;
+}
+
+const getFrequencyLabel = (freq: string) => {
+  switch (freq) {
+    case 'monthly': return 'Monthly';
+    case 'annually': return 'Annually';
+    case '12_hajar': return '12 Hajar';
+    default: return freq.charAt(0).toUpperCase() + freq.slice(1);
+  }
+};
+
+const getFrequencyColor = (freq: string) => {
+  switch (freq) {
+    case 'monthly': return { bg: '#dbeafe', color: '#1e40af', border: '#93c5fd' };
+    case 'annually': return { bg: '#dcfce7', color: '#166534', border: '#86efac' };
+    case '12_hajar': return { bg: '#f3e8ff', color: '#6b21a8', border: '#c4b5fd' };
+    default: return { bg: '#f3f4f6', color: '#374151', border: '#d1d5db' };
+  }
+};
+
+const getFrequencyTailwind = (freq: string) => {
+  switch (freq) {
+    case 'monthly': return 'border-blue-200 text-blue-700 bg-blue-50';
+    case 'annually': return 'border-green-200 text-green-700 bg-green-50';
+    case '12_hajar': return 'border-purple-200 text-purple-700 bg-purple-50';
+    default: return 'border-gray-200 text-gray-700 bg-gray-50';
+  }
+};
 
 function groupPaymentsByMonth(payments: Payment[]): GroupedPayments[] {
   const groups = new Map<string, { payments: Payment[]; label: string; sortKey: string }>();
@@ -67,6 +102,37 @@ function groupPaymentsByMonth(payments: Payment[]): GroupedPayments[] {
     .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 }
 
+function groupBySubscription(payments: Payment[], selectedFreqs: string[]): SubscriptionGroup[] {
+  const groups: SubscriptionGroup[] = [];
+
+  for (const freq of selectedFreqs) {
+    const freqPayments = payments.filter(p => p.payment_for === freq);
+    if (freqPayments.length > 0) {
+      groups.push({
+        frequency: freq,
+        label: getFrequencyLabel(freq),
+        payments: freqPayments,
+        monthGroups: groupPaymentsByMonth(freqPayments),
+        subtotal: freqPayments.reduce((sum, p) => sum + Number(p.amount_paid), 0),
+      });
+    }
+  }
+
+  // Payments with no payment_for (general/untagged)
+  const generalPayments = payments.filter(p => !p.payment_for || !selectedFreqs.includes(p.payment_for));
+  if (generalPayments.length > 0) {
+    groups.push({
+      frequency: 'general',
+      label: 'General',
+      payments: generalPayments,
+      monthGroups: groupPaymentsByMonth(generalPayments),
+      subtotal: generalPayments.reduce((sum, p) => sum + Number(p.amount_paid), 0),
+    });
+  }
+
+  return groups;
+}
+
 export function SubscriberStatement({ subscriber, open, onClose }: SubscriberStatementProps) {
   const [loading, setLoading] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -76,6 +142,15 @@ export function SubscriberStatement({ subscriber, open, onClose }: SubscriberSta
   const [attachReceipts, setAttachReceipts] = useState(false);
   const [isAllTime, setIsAllTime] = useState(true);
   const [printing, setPrinting] = useState(false);
+  const [selectedSubscriptions, setSelectedSubscriptions] = useState<string[]>([]);
+
+  // Initialize selected subscriptions from subscriber's frequency
+  useEffect(() => {
+    if (open && subscriber.frequency) {
+      const freqs = Array.isArray(subscriber.frequency) ? subscriber.frequency : [subscriber.frequency];
+      setSelectedSubscriptions(freqs);
+    }
+  }, [open, subscriber.frequency]);
 
   const fetchPayments = async (start?: string, end?: string) => {
     setLoading(true);
@@ -103,6 +178,7 @@ export function SubscriberStatement({ subscriber, open, onClose }: SubscriberSta
     setEndDate(null);
     setIsAllTime(true);
     setAttachReceipts(false);
+    setSelectedSubscriptions([]);
     onClose();
   };
 
@@ -113,8 +189,6 @@ export function SubscriberStatement({ subscriber, open, onClose }: SubscriberSta
     fetchPayments();
   };
 
-  // Convert JS Date to YYYY-MM-DD string using local date components
-  // (avoids timezone shift from toISOString() which would move Nepal midnight to previous UTC day)
   const toLocalDateString = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
@@ -124,7 +198,6 @@ export function SubscriberStatement({ subscriber, open, onClose }: SubscriberSta
     fetchPayments(toLocalDateString(startDate), toLocalDateString(endDate));
   };
 
-  // Auto-filter when both dates are selected
   useEffect(() => {
     if (startDate && endDate && fetched) {
       setIsAllTime(false);
@@ -132,17 +205,32 @@ export function SubscriberStatement({ subscriber, open, onClose }: SubscriberSta
     }
   }, [startDate, endDate]);
 
-  const grouped = groupPaymentsByMonth(payments);
-  const totalAmount = payments.reduce((sum, p) => sum + Number(p.amount_paid), 0);
+  const handleSubscriptionToggle = (freq: string) => {
+    setSelectedSubscriptions(prev =>
+      prev.includes(freq) ? prev.filter(f => f !== freq) : [...prev, freq]
+    );
+  };
+
+  // Filter payments by selected subscriptions
+  const filteredPayments = payments.filter(p => {
+    if (!p.payment_for) return true; // include untagged payments always
+    return selectedSubscriptions.includes(p.payment_for);
+  });
+
+  const subscriptionGroups = groupBySubscription(filteredPayments, selectedSubscriptions);
+  const totalAmount = filteredPayments.reduce((sum, p) => sum + Number(p.amount_paid), 0);
   const printDateStr = formatNepaliDate(new Date(), 'full');
 
-  // Build running balance
-  let runningBalance = 0;
-  const paymentBalances = new Map<string, number>();
-  for (const payment of payments) {
-    runningBalance += Number(payment.amount_paid);
-    paymentBalances.set(payment.id, runningBalance);
-  }
+  // Build running balance per subscription group
+  const buildBalanceMap = (payments: Payment[]) => {
+    let runningBalance = 0;
+    const map = new Map<string, number>();
+    for (const payment of payments) {
+      runningBalance += Number(payment.amount_paid);
+      map.set(payment.id, runningBalance);
+    }
+    return map;
+  };
 
   const getPaymentModeLabel = (mode: string | null) => {
     switch (mode) {
@@ -163,69 +251,89 @@ export function SubscriberStatement({ subscriber, open, onClose }: SubscriberSta
     return notes.replace(/\|?\s*Payment for:\s*[^|]+/g, '').trim();
   };
 
+  const subscriberFreqs = Array.isArray(subscriber.frequency) ? subscriber.frequency : [subscriber.frequency];
+
   const statementPeriod = isAllTime
     ? 'All Time'
     : `${startDate ? formatNepaliDate(startDate, 'short') : '—'} to ${endDate ? formatNepaliDate(endDate, 'short') : '—'}`;
 
+  const selectedSubsLabel = selectedSubscriptions.length === subscriberFreqs.length
+    ? 'All Types'
+    : selectedSubscriptions.map(f => getFrequencyLabel(f)).join(', ');
+
   const handlePrint = () => {
     setPrinting(true);
 
-    // Build print HTML
-    const groupsHtml = grouped.map(group => {
-      const rowsHtml = group.payments.map(payment => {
-        const period = extractPeriod(payment.notes);
-        const notes = extractNotes(payment.notes);
-        const periodTags = period
-          ? period.split(',').map(p => `<span class="period-tag">${p.trim()}</span>`).join(' ')
-          : '';
-        const notesHtml = notes ? `<div class="notes-text">${notes}</div>` : '';
-        const modeClass = payment.payment_mode === 'online_transfer' ? 'mode-online' : payment.payment_mode === 'physical_transfer' ? 'mode-physical' : '';
-        const modeLabel = getPaymentModeLabel(payment.payment_mode);
+    // Build print HTML per subscription group
+    const subscriptionSectionsHtml = subscriptionGroups.map(subGroup => {
+      const freqColor = getFrequencyColor(subGroup.frequency);
+      const balanceMap = buildBalanceMap(subGroup.payments);
+
+      const monthGroupsHtml = subGroup.monthGroups.map(group => {
+        const rowsHtml = group.payments.map(payment => {
+          const period = extractPeriod(payment.notes);
+          const notes = extractNotes(payment.notes);
+          const periodTags = period
+            ? period.split(',').map(p => `<span class="period-tag">${p.trim()}</span>`).join(' ')
+            : '';
+          const notesHtml = notes ? `<div class="notes-text">${notes}</div>` : '';
+          const modeClass = payment.payment_mode === 'online_transfer' ? 'mode-online' : payment.payment_mode === 'physical_transfer' ? 'mode-physical' : '';
+          const modeLabel = getPaymentModeLabel(payment.payment_mode);
+
+          return `
+            <tr>
+              <td>${formatNepaliDateTime(payment.payment_date)}</td>
+              <td class="mono">${payment.receipt_number || '—'}</td>
+              <td>${payment.payment_mode ? `<span class="mode-badge ${modeClass}">${modeLabel}</span>` : '—'}</td>
+              <td>${periodTags}${notesHtml}</td>
+              <td class="text-right amount">Rs. ${Number(payment.amount_paid).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+              <td class="text-right balance">Rs. ${(balanceMap.get(payment.id) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+            </tr>
+          `;
+        }).join('');
+
+        let receiptsHtml = '';
+        if (attachReceipts) {
+          const withProof = group.payments.filter(p => p.proof_url);
+          if (withProof.length > 0) {
+            const imgsHtml = withProof.map(p => `
+              <div class="receipt-item">
+                <div class="receipt-label">Receipt — ${p.receipt_number || formatNepaliDate(p.payment_date, 'short')} (Rs. ${Number(p.amount_paid).toFixed(2)})</div>
+                <img src="${p.proof_url}" alt="Receipt" crossorigin="anonymous" />
+              </div>
+            `).join('');
+            receiptsHtml = `<tr><td colspan="6" class="receipts-cell"><div class="receipts-grid">${imgsHtml}</div></td></tr>`;
+          }
+        }
 
         return `
-          <tr>
-            <td>${formatNepaliDateTime(payment.payment_date)}</td>
-            <td class="mono">${payment.receipt_number || '—'}</td>
-            <td>${payment.payment_mode ? `<span class="mode-badge ${modeClass}">${modeLabel}</span>` : '—'}</td>
-            <td>${periodTags}${notesHtml}</td>
-            <td class="text-right amount">Rs. ${Number(payment.amount_paid).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-            <td class="text-right balance">Rs. ${(paymentBalances.get(payment.id) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-          </tr>
+          <div class="month-group">
+            <div class="month-header">
+              <span>${group.label}</span>
+              <span>Subtotal: Rs. ${group.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+            </div>
+            <table>
+              <thead><tr>
+                <th style="width:20%">Date</th>
+                <th style="width:12%">Receipt #</th>
+                <th style="width:10%">Mode</th>
+                <th>Period / Notes</th>
+                <th class="text-right" style="width:14%">Amount</th>
+                <th class="text-right" style="width:14%">Balance</th>
+              </tr></thead>
+              <tbody>${rowsHtml}${receiptsHtml}</tbody>
+            </table>
+          </div>
         `;
       }).join('');
 
-      // Receipt images
-      let receiptsHtml = '';
-      if (attachReceipts) {
-        const withProof = group.payments.filter(p => p.proof_url);
-        if (withProof.length > 0) {
-          const imgsHtml = withProof.map(p => `
-            <div class="receipt-item">
-              <div class="receipt-label">Receipt — ${p.receipt_number || formatNepaliDate(p.payment_date, 'short')} (Rs. ${Number(p.amount_paid).toFixed(2)})</div>
-              <img src="${p.proof_url}" alt="Receipt" crossorigin="anonymous" />
-            </div>
-          `).join('');
-          receiptsHtml = `<tr><td colspan="6" class="receipts-cell"><div class="receipts-grid">${imgsHtml}</div></td></tr>`;
-        }
-      }
-
       return `
-        <div class="month-group">
-          <div class="month-header">
-            <span>${group.label}</span>
-            <span>Subtotal: Rs. ${group.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+        <div class="subscription-section">
+          <div class="subscription-heading" style="background:${freqColor.bg};color:${freqColor.color};border-left:4px solid ${freqColor.color}">
+            <span class="subscription-title">${subGroup.label}</span>
+            <span class="subscription-total">Section Total: Rs. ${subGroup.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (${subGroup.payments.length} payment${subGroup.payments.length !== 1 ? 's' : ''})</span>
           </div>
-          <table>
-            <thead><tr>
-              <th style="width:20%">Date</th>
-              <th style="width:12%">Receipt #</th>
-              <th style="width:10%">Mode</th>
-              <th>Period / Notes</th>
-              <th class="text-right" style="width:14%">Amount</th>
-              <th class="text-right" style="width:14%">Balance</th>
-            </tr></thead>
-            <tbody>${rowsHtml}${receiptsHtml}</tbody>
-          </table>
+          ${monthGroupsHtml}
         </div>
       `;
     }).join('');
@@ -240,7 +348,11 @@ export function SubscriberStatement({ subscriber, open, onClose }: SubscriberSta
       .acct-info{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px;padding:12px 16px;background:#f8f9fa;border:1px solid #e5e7eb;border-radius:6px}
       .acct-info .lbl{font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#888;font-weight:600}
       .acct-info .val{font-size:12px;font-weight:500;color:#1a1a2e}
-      .period-info{display:inline-block;padding:3px 10px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:4px;font-size:10px;color:#4338ca;font-weight:600;margin-bottom:16px}
+      .period-info{display:inline-block;padding:3px 10px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:4px;font-size:10px;color:#4338ca;font-weight:600;margin-bottom:8px;margin-right:8px}
+      .subscription-section{margin-bottom:18px;page-break-inside:avoid}
+      .subscription-heading{padding:8px 14px;font-size:13px;font-weight:700;border-radius:6px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+      .subscription-title{font-size:14px}
+      .subscription-total{font-size:11px;font-weight:600;opacity:.8}
       .month-group{margin-bottom:14px;page-break-inside:avoid}
       .month-header{background:#1a1a2e;color:#fff;padding:6px 12px;font-size:11px;font-weight:600;border-radius:4px 4px 0 0;display:flex;justify-content:space-between}
       table{width:100%;border-collapse:collapse}
@@ -264,7 +376,7 @@ export function SubscriberStatement({ subscriber, open, onClose }: SubscriberSta
       .summary-row{display:flex;justify-content:space-between;padding:3px 0;font-size:11px}
       .summary-row.total{border-top:1px solid #e5e7eb;margin-top:6px;padding-top:8px;font-size:14px;font-weight:700}
       .footer{margin-top:24px;padding-top:12px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;font-size:10px;color:#888}
-      @media print{body{padding:16px}@page{margin:12mm;size:A4}.month-group{page-break-inside:avoid}.receipt-item{page-break-inside:avoid}}
+      @media print{body{padding:16px}@page{margin:12mm;size:A4}.subscription-section{page-break-inside:avoid}.month-group{page-break-inside:avoid}.receipt-item{page-break-inside:avoid}}
     </style></head><body>
       <div class="stmt-header"><h1>Payment Statement</h1><p class="sub">SubTrack Management System</p></div>
       <div class="acct-info">
@@ -275,11 +387,14 @@ export function SubscriberStatement({ subscriber, open, onClose }: SubscriberSta
         <div><div class="lbl">Member Since</div><div class="val">${formatNepaliDate(subscriber.created_at, 'short')}</div></div>
       </div>
       <div class="period-info">Statement Period: ${statementPeriod}</div>
-      ${groupsHtml}
-      ${payments.length > 0 ? `
+      <div class="period-info">Subscriptions: ${selectedSubsLabel}</div>
+      ${subscriptionSectionsHtml}
+      ${filteredPayments.length > 0 ? `
         <div class="summary">
           <div class="summary-row"><span>Statement Period</span><span>${statementPeriod}</span></div>
-          <div class="summary-row"><span>Total Transactions</span><span>${payments.length}</span></div>
+          <div class="summary-row"><span>Subscriptions Included</span><span>${selectedSubsLabel}</span></div>
+          <div class="summary-row"><span>Total Transactions</span><span>${filteredPayments.length}</span></div>
+          ${subscriptionGroups.map(sg => `<div class="summary-row"><span>${sg.label}</span><span>Rs. ${sg.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>`).join('')}
           <div class="summary-row total"><span>Total Amount Paid</span><span>Rs. ${totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
         </div>
       ` : ''}
@@ -310,7 +425,7 @@ export function SubscriberStatement({ subscriber, open, onClose }: SubscriberSta
               </DialogTitle>
               <Button
                 onClick={handlePrint}
-                disabled={loading || payments.length === 0 || printing}
+                disabled={loading || filteredPayments.length === 0 || printing}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
                 size="sm"
               >
@@ -355,6 +470,38 @@ export function SubscriberStatement({ subscriber, open, onClose }: SubscriberSta
                 All Time
               </Button>
             </div>
+
+            {/* Subscription Type Multiselect */}
+            {subscriberFreqs.length > 0 && (
+              <div className="flex items-center gap-4 p-2.5 bg-gray-50 rounded-lg border border-gray-100">
+                <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium shrink-0">
+                  <Filter className="w-3.5 h-3.5" />
+                  Subscriptions:
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  {subscriberFreqs.map(freq => (
+                    <div key={freq} className="flex items-center space-x-1.5">
+                      <Checkbox
+                        id={`sub-filter-${freq}`}
+                        checked={selectedSubscriptions.includes(freq)}
+                        onCheckedChange={() => handleSubscriptionToggle(freq)}
+                      />
+                      <label
+                        htmlFor={`sub-filter-${freq}`}
+                        className="text-sm cursor-pointer select-none"
+                      >
+                        <Badge
+                          variant="outline"
+                          className={`text-xs px-2 py-0.5 ${getFrequencyTailwind(freq)}`}
+                        >
+                          {getFrequencyLabel(freq)}
+                        </Badge>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center space-x-2">
               <Checkbox
@@ -405,135 +552,168 @@ export function SubscriberStatement({ subscriber, open, onClose }: SubscriberSta
                 </div>
               </div>
 
-              {/* Period Badge */}
-              <Badge variant="outline" className="border-indigo-200 text-indigo-700 bg-indigo-50 text-xs px-3 py-1">
-                Statement Period: {statementPeriod}
-              </Badge>
+                {/* Period & Subscription Badges */}
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="outline" className="border-indigo-200 text-indigo-700 bg-indigo-50 text-xs px-3 py-1">
+                    Statement Period: {statementPeriod}
+                  </Badge>
+                  <Badge variant="outline" className="border-gray-200 text-gray-600 bg-gray-50 text-xs px-3 py-1">
+                    Subscriptions: {selectedSubsLabel}
+                  </Badge>
+                </div>
 
-              {/* Month Groups */}
-              {grouped.length === 0 ? (
+                {/* Subscription Groups */}
+                {subscriptionGroups.length === 0 ? (
                 <div className="text-center py-12 text-gray-400">
                   <CreditCard className="w-10 h-10 mx-auto mb-3 opacity-40" />
-                  <p>No payment records found for this period.</p>
+                    <p>No payment records found for the selected criteria.</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {grouped.map((group) => (
-                    <div key={group.sortKey} className="rounded-lg border border-gray-200 overflow-hidden">
-                      {/* Month Header */}
-                      <div className="bg-gray-900 text-white px-4 py-2 flex items-center justify-between text-sm">
-                        <span className="font-semibold">{group.label}</span>
-                        <span className="text-gray-300 text-xs">
-                          Subtotal: Rs. {group.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                        </span>
-                      </div>
+                    <div className="space-y-6">
+                      {subscriptionGroups.map((subGroup) => {
+                        const balanceMap = buildBalanceMap(subGroup.payments);
+                        return (
+                          <div key={subGroup.frequency} className="space-y-3">
+                            {/* Subscription Type Heading */}
+                            <div className={`flex items-center justify-between p-3 rounded-lg border-l-4 ${subGroup.frequency === 'monthly' ? 'bg-blue-50 border-blue-500' :
+                                subGroup.frequency === 'annually' ? 'bg-green-50 border-green-500' :
+                                  subGroup.frequency === '12_hajar' ? 'bg-purple-50 border-purple-500' :
+                                    'bg-gray-50 border-gray-400'
+                              }`}>
+                              <h3 className="text-sm font-bold text-gray-900">{subGroup.label}</h3>
+                              <span className="text-xs text-gray-600 font-medium">
+                                {subGroup.payments.length} payment{subGroup.payments.length !== 1 ? 's' : ''} •
+                                Rs. {subGroup.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              </span>
+                            </div>
 
-                      {/* Payment Rows */}
-                      <div className="divide-y divide-gray-100">
-                        {group.payments.map((payment) => {
-                          const period = extractPeriod(payment.notes);
-                          const notes = extractNotes(payment.notes);
-                          return (
-                            <div key={payment.id} className="px-4 py-3 hover:bg-gray-50 transition-colors">
-                              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-                                {/* Left: Date + Receipt + Mode */}
-                                <div className="flex-1 min-w-0 space-y-1">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span className="text-sm text-gray-900 font-medium">
-                                      {formatNepaliDateTime(payment.payment_date)}
-                                    </span>
-                                    {payment.receipt_number && (
-                                      <Badge variant="outline" className="text-[10px] border-gray-200 text-gray-500 bg-white font-mono px-1.5 py-0">
-                                        #{payment.receipt_number}
-                                      </Badge>
-                                    )}
-                                    {payment.payment_mode && (
-                                      <Badge
-                                        variant="outline"
-                                        className={`text-[10px] px-1.5 py-0 ${
-                                          payment.payment_mode === 'online_transfer'
-                                            ? 'border-blue-200 text-blue-700 bg-blue-50'
-                                            : 'border-amber-200 text-amber-700 bg-amber-50'
-                                        }`}
-                                      >
-                                        {getPaymentModeLabel(payment.payment_mode)}
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  {period && (
-                                    <div className="flex flex-wrap gap-1">
-                                      {period.split(',').map((p, i) => (
-                                        <Badge
-                                          key={i}
-                                          variant="outline"
-                                          className="text-[10px] border-indigo-200 text-indigo-600 bg-indigo-50 px-1.5 py-0"
-                                        >
-                                          {p.trim()}
-                                        </Badge>
+                            {/* Month Groups within this subscription */}
+                            <div className="space-y-4 pl-2">
+                              {subGroup.monthGroups.map((group) => (
+                                <div key={group.sortKey} className="rounded-lg border border-gray-200 overflow-hidden">
+                              <div className="bg-gray-900 text-white px-4 py-2 flex items-center justify-between text-sm">
+                                <span className="font-semibold">{group.label}</span>
+                                <span className="text-gray-300 text-xs">
+                                  Subtotal: Rs. {group.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </span>
+                              </div>
+
+                              <div className="divide-y divide-gray-100">
+                                {group.payments.map((payment) => {
+                                  const period = extractPeriod(payment.notes);
+                                  const notes = extractNotes(payment.notes);
+                                  return (
+                                    <div key={payment.id} className="px-4 py-3 hover:bg-gray-50 transition-colors">
+                                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                                        <div className="flex-1 min-w-0 space-y-1">
+                                          <div className="flex flex-wrap items-center gap-2">
+                                            <span className="text-sm text-gray-900 font-medium">
+                                              {formatNepaliDateTime(payment.payment_date)}
+                                            </span>
+                                            {payment.receipt_number && (
+                                              <Badge variant="outline" className="text-[10px] border-gray-200 text-gray-500 bg-white font-mono px-1.5 py-0">
+                                                #{payment.receipt_number}
+                                              </Badge>
+                                            )}
+                                            {payment.payment_mode && (
+                                              <Badge
+                                                variant="outline"
+                                                className={`text-[10px] px-1.5 py-0 ${payment.payment_mode === 'online_transfer'
+                                                    ? 'border-blue-200 text-blue-700 bg-blue-50'
+                                                    : 'border-amber-200 text-amber-700 bg-amber-50'
+                                                  }`}
+                                              >
+                                                {getPaymentModeLabel(payment.payment_mode)}
+                                              </Badge>
+                                            )}
+                                          </div>
+                                          {period && (
+                                            <div className="flex flex-wrap gap-1">
+                                              {period.split(',').map((p, i) => (
+                                                <Badge
+                                                  key={i}
+                                                  variant="outline"
+                                                  className="text-[10px] border-indigo-200 text-indigo-600 bg-indigo-50 px-1.5 py-0"
+                                                >
+                                                  {p.trim()}
+                                                </Badge>
+                                              ))}
+                                            </div>
+                                          )}
+                                          {notes && (
+                                            <p className="text-xs text-gray-400">{notes}</p>
+                                          )}
+                                        </div>
+
+                                        <div className="flex items-center gap-4 sm:text-right shrink-0">
+                                          <div>
+                                            <p className="text-sm font-semibold text-gray-900 tabular-nums">
+                                              Rs. {Number(payment.amount_paid).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            </p>
+                                          </div>
+                                          <div className="hidden sm:block">
+                                            <p className="text-xs text-gray-400">Balance</p>
+                                            <p className="text-sm font-semibold text-emerald-600 tabular-nums">
+                                              Rs. {(balanceMap.get(payment.id) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+
+                                {/* Receipt Images */}
+                                {attachReceipts && group.payments.some(p => p.proof_url) && (
+                                  <div className="px-4 py-3 bg-gray-50">
+                                    <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2">Receipt Images</p>
+                                    <div className="flex flex-wrap gap-3">
+                                      {group.payments.filter(p => p.proof_url).map(payment => (
+                                        <div key={`img-${payment.id}`} className="space-y-1">
+                                          <p className="text-[10px] text-gray-400">
+                                            {payment.receipt_number || formatNepaliDate(payment.payment_date, 'short')} — Rs. {Number(payment.amount_paid).toFixed(2)}
+                                          </p>
+                                          <img
+                                            src={payment.proof_url!}
+                                            alt="Receipt"
+                                            className="max-w-[250px] max-h-[200px] rounded border border-gray-200 object-contain"
+                                          />
+                                        </div>
                                       ))}
                                     </div>
-                                  )}
-                                  {notes && (
-                                    <p className="text-xs text-gray-400">{notes}</p>
-                                  )}
-                                </div>
-
-                                {/* Right: Amount + Balance */}
-                                <div className="flex items-center gap-4 sm:text-right shrink-0">
-                                  <div>
-                                    <p className="text-sm font-semibold text-gray-900 tabular-nums">
-                                      Rs. {Number(payment.amount_paid).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                    </p>
                                   </div>
-                                  <div className="hidden sm:block">
-                                    <p className="text-xs text-gray-400">Balance</p>
-                                    <p className="text-sm font-semibold text-emerald-600 tabular-nums">
-                                      Rs. {(paymentBalances.get(payment.id) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                    </p>
-                                  </div>
-                                </div>
+                                )}
                               </div>
                             </div>
-                          );
-                        })}
-
-                        {/* Receipt Images */}
-                        {attachReceipts && group.payments.some(p => p.proof_url) && (
-                          <div className="px-4 py-3 bg-gray-50">
-                            <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2">Receipt Images</p>
-                            <div className="flex flex-wrap gap-3">
-                              {group.payments.filter(p => p.proof_url).map(payment => (
-                                <div key={`img-${payment.id}`} className="space-y-1">
-                                  <p className="text-[10px] text-gray-400">
-                                    {payment.receipt_number || formatNepaliDate(payment.payment_date, 'short')} — Rs. {Number(payment.amount_paid).toFixed(2)}
-                                  </p>
-                                  <img
-                                    src={payment.proof_url!}
-                                    alt="Receipt"
-                                    className="max-w-[250px] max-h-[200px] rounded border border-gray-200 object-contain"
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
               {/* Summary */}
-              {payments.length > 0 && (
+                {filteredPayments.length > 0 && (
                 <div className="rounded-lg border-2 border-gray-900 p-4 space-y-1">
                   <div className="flex justify-between text-sm text-gray-600">
                     <span>Statement Period</span>
                     <span>{statementPeriod}</span>
                   </div>
                   <div className="flex justify-between text-sm text-gray-600">
+                      <span>Subscriptions Included</span>
+                      <span>{selectedSubsLabel}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-gray-600">
                     <span>Total Transactions</span>
-                    <span>{payments.length}</span>
+                      <span>{filteredPayments.length}</span>
                   </div>
+                    {subscriptionGroups.map(sg => (
+                      <div key={sg.frequency} className="flex justify-between text-sm text-gray-500">
+                        <span className="pl-2">— {sg.label}</span>
+                        <span>Rs. {sg.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    ))}
                   <Separator className="my-2" />
                   <div className="flex justify-between text-lg font-bold text-gray-900">
                     <span>Total Amount Paid</span>
