@@ -120,39 +120,60 @@ async function getSubscriber(id: string) {
   const paymentList = (payments || []) as Payment[];
   const sub = subscriber as Subscriber;
 
-  // Lazy recalculation: compute correct end date from all payment periods
-  if (paymentList.length > 0) {
-    const allPeriods: MonthSelection[] = [];
-    for (const p of paymentList) {
-      const periods = getPeriodsFromPayment(p);
-      allPeriods.push(...periods);
+  // Lazy recalculation: compute per-frequency end dates from payments grouped by payment_for
+  {
+    const frequencies: string[] = sub.frequency || [];
+    const computedEndDates: Record<string, string> = {};
+
+    // Group payments by payment_for and calculate end date per frequency
+    for (const freq of frequencies) {
+      const freqPayments = paymentList.filter(p => p.payment_for === freq);
+      if (freqPayments.length === 0) continue; // No payments = no end date for this frequency
+
+      const freqPeriods: MonthSelection[] = [];
+      for (const p of freqPayments) {
+        const periods = getPeriodsFromPayment(p);
+        freqPeriods.push(...periods);
+      }
+
+      const freqEndDate = calculateEndDateFromPeriods(freqPeriods);
+      if (freqEndDate) {
+        computedEndDates[freq] = freqEndDate.toISOString();
+      }
     }
 
-    const computedEndDate = calculateEndDateFromPeriods(allPeriods);
-    if (computedEndDate) {
-      const storedEnd = new Date(sub.subscription_end_date).getTime();
-      const computedEnd = computedEndDate.getTime();
+    // Determine soonest end date across frequencies that have payments
+    const allEndDateValues = Object.values(computedEndDates).map(d => new Date(d).getTime());
+    const soonestEndDate = allEndDateValues.length > 0
+      ? new Date(Math.min(...allEndDateValues)).toISOString()
+      : sub.subscription_end_date; // Keep existing if no payments at all
 
-      // If computed end date differs from stored, update the DB
-      if (computedEnd !== storedEnd) {
-        const now = new Date();
-        const newStatus = computedEnd > now.getTime() ? 'active' : sub.status;
+    // Check if anything changed
+    const storedEndDates: Record<string, string> = sub.subscription_end_dates || {};
+    const endDatesChanged = JSON.stringify(computedEndDates) !== JSON.stringify(storedEndDates);
+    const soonestChanged = soonestEndDate !== sub.subscription_end_date;
 
-        const adminSupabase = createAdminClient();
-        await adminSupabase
-          .from('subscribers')
-          .update({
-            subscription_end_date: computedEndDate.toISOString(),
-            ...(newStatus === 'active' ? { status: 'active', status_notes: null } : {}),
-          })
-          .eq('id', id);
+    if (endDatesChanged || soonestChanged) {
+      const now = new Date();
+      const newStatus = allEndDateValues.length > 0 && new Date(soonestEndDate).getTime() > now.getTime()
+        ? 'active' : sub.status;
 
-        // Update the in-memory subscriber object so the page renders correctly
-        sub.subscription_end_date = computedEndDate.toISOString();
-        if (newStatus === 'active') {
-          sub.status = 'active';
-          sub.status_notes = null;
-        }
+      const adminSupabase = createAdminClient();
+      await adminSupabase
+        .from('subscribers')
+        .update({
+          subscription_end_date: soonestEndDate,
+          subscription_end_dates: computedEndDates,
+          ...(newStatus === 'active' ? { status: 'active', status_notes: null } : {}),
+        })
+        .eq('id', id);
+
+      // Update in-memory subscriber object
+      sub.subscription_end_date = soonestEndDate;
+      sub.subscription_end_dates = computedEndDates;
+      if (newStatus === 'active') {
+        sub.status = 'active';
+        sub.status_notes = null;
       }
     }
   }

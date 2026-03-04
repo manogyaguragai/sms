@@ -1,60 +1,145 @@
 import { createClient } from '@/lib/supabase/server';
 import { getNepaliMonthStartDate } from '@/lib/nepali-date';
-import { StatsCard } from '@/components/stats-card';
-import { FinancialsAnalytics } from '@/components/financials-analytics';
-import { DollarSign, TrendingUp, TrendingDown, UserPlus } from 'lucide-react';
-import type { Subscriber, Payment } from '@/lib/types';
+import { FinancialsPageClient } from '@/components/financials-page-client';
+import type { Payment } from '@/lib/types';
+
+type SubscriptionType = 'all' | 'regular' | '12_hajar';
+
+interface SegmentedStats {
+  expectedMRR: number;
+  activeUserCount: number;
+  collectedThisMonth: number;
+  usersWhoPayedThisMonth: number;
+  paymentGap: number;
+  pendingFirstPayment: number;
+}
+
+function isRegularPayment(paymentFor: string | null | undefined): boolean {
+  return !paymentFor || paymentFor === 'monthly' || paymentFor === 'annually';
+}
+
+function is12HajarPayment(paymentFor: string | null | undefined): boolean {
+  return paymentFor === '12_hajar';
+}
 
 async function getFinancialsData() {
   const supabase = await createClient();
 
-  // Get all active subscribers
+  // Get all active subscribers with frequency info
   const { data: subscribers } = await supabase
     .from('subscribers')
     .select('id, full_name, status, frequency')
     .eq('status', 'active');
 
-  // Get all payments for analytics
+  // Get all payments (including payment_for for segmentation)
   const { data: allPayments } = await supabase
     .from('payments')
-    .select('id, amount_paid, subscriber_id, payment_date');
+    .select('id, amount_paid, subscriber_id, payment_date, payment_for');
 
-  // Count active subscribers for Expected MRR
-  const activeUserCount = subscribers?.length || 0;
+  // Count subscribers by frequency type
+  let regularSubCount = 0;
+  let twelveHajarSubCount = 0;
 
-  // Expected MRR: Simple calculation (users × Rs.500)
-  const expectedMRR = activeUserCount * 500;
-
-  // Group payments by subscriber (for identifying who has made payments)
-  const subscribersWithPayments = new Set<string>();
-  (allPayments || []).forEach(p => {
-    subscribersWithPayments.add(p.subscriber_id);
-  });
-
-  // Count pending first payment
-  let pendingFirstPayment = 0;
   if (subscribers) {
     subscribers.forEach((sub) => {
-      if (!subscribersWithPayments.has(sub.id)) {
-        pendingFirstPayment++;
+      const freqs = Array.isArray(sub.frequency) ? sub.frequency : [sub.frequency];
+      if (freqs.includes('monthly') || freqs.includes('annually')) {
+        regularSubCount++;
+      }
+      if (freqs.includes('12_hajar')) {
+        twelveHajarSubCount++;
       }
     });
   }
 
-  // Calculate collected this month (Nepali month)
+  const totalActiveCount = subscribers?.length || 0;
+
+  // Expected MRR per type
+  const regularMRR = regularSubCount * 500;
+  const twelveHajarMRR = twelveHajarSubCount * 12000;
+  const allMRR = regularMRR + twelveHajarMRR;
+
+  // Group payments by subscriber for "pending first payment" calc
+  const subscribersWithRegularPayment = new Set<string>();
+  const subscribersWithTwelveHajarPayment = new Set<string>();
+  const subscribersWithAnyPayment = new Set<string>();
+
+  (allPayments || []).forEach(p => {
+    subscribersWithAnyPayment.add(p.subscriber_id);
+    if (is12HajarPayment(p.payment_for)) {
+      subscribersWithTwelveHajarPayment.add(p.subscriber_id);
+    }
+    if (isRegularPayment(p.payment_for)) {
+      subscribersWithRegularPayment.add(p.subscriber_id);
+    }
+  });
+
+  // Pending first payment per type
+  let pendingAll = 0;
+  let pendingRegular = 0;
+  let pending12Hajar = 0;
+
+  if (subscribers) {
+    subscribers.forEach((sub) => {
+      const freqs = Array.isArray(sub.frequency) ? sub.frequency : [sub.frequency];
+      if (!subscribersWithAnyPayment.has(sub.id)) {
+        pendingAll++;
+      }
+      if ((freqs.includes('monthly') || freqs.includes('annually')) && !subscribersWithRegularPayment.has(sub.id)) {
+        pendingRegular++;
+      }
+      if (freqs.includes('12_hajar') && !subscribersWithTwelveHajarPayment.has(sub.id)) {
+        pending12Hajar++;
+      }
+    });
+  }
+
+  // Calculate collected this month (Nepali month) per type
   const nepaliMonthStart = getNepaliMonthStartDate();
   const thisMonthPayments = (allPayments || []).filter(
     p => new Date(p.payment_date) >= nepaliMonthStart
   );
-  const collectedThisMonth = thisMonthPayments.reduce(
-    (sum, p) => sum + Number(p.amount_paid),
-    0
-  );
 
-  // Count unique users who paid this month
-  const usersWhoPayedThisMonth = new Set(thisMonthPayments.map(p => p.subscriber_id)).size;
+  // All
+  const collectedAll = thisMonthPayments.reduce((sum, p) => sum + Number(p.amount_paid), 0);
+  const usersAll = new Set(thisMonthPayments.map(p => p.subscriber_id)).size;
 
-  const paymentGap = expectedMRR - collectedThisMonth;
+  // Regular
+  const regularMonthPayments = thisMonthPayments.filter(p => isRegularPayment(p.payment_for));
+  const collectedRegular = regularMonthPayments.reduce((sum, p) => sum + Number(p.amount_paid), 0);
+  const usersRegular = new Set(regularMonthPayments.map(p => p.subscriber_id)).size;
+
+  // 12 Hajar
+  const twelveHajarMonthPayments = thisMonthPayments.filter(p => is12HajarPayment(p.payment_for));
+  const collected12Hajar = twelveHajarMonthPayments.reduce((sum, p) => sum + Number(p.amount_paid), 0);
+  const users12Hajar = new Set(twelveHajarMonthPayments.map(p => p.subscriber_id)).size;
+
+  const stats: Record<SubscriptionType, SegmentedStats> = {
+    all: {
+      expectedMRR: allMRR,
+      activeUserCount: totalActiveCount,
+      collectedThisMonth: collectedAll,
+      usersWhoPayedThisMonth: usersAll,
+      paymentGap: allMRR - collectedAll,
+      pendingFirstPayment: pendingAll,
+    },
+    regular: {
+      expectedMRR: regularMRR,
+      activeUserCount: regularSubCount,
+      collectedThisMonth: collectedRegular,
+      usersWhoPayedThisMonth: usersRegular,
+      paymentGap: regularMRR - collectedRegular,
+      pendingFirstPayment: pendingRegular,
+    },
+    '12_hajar': {
+      expectedMRR: twelveHajarMRR,
+      activeUserCount: twelveHajarSubCount,
+      collectedThisMonth: collected12Hajar,
+      usersWhoPayedThisMonth: users12Hajar,
+      paymentGap: twelveHajarMRR - collected12Hajar,
+      pendingFirstPayment: pending12Hajar,
+    },
+  };
 
   // Get all subscribers for the analytics dropdown
   const { data: allSubscribers } = await supabase
@@ -63,30 +148,14 @@ async function getFinancialsData() {
     .order('full_name');
 
   return {
-    expectedMRR,
-    activeUserCount,
-    collectedThisMonth,
-    usersWhoPayedThisMonth,
-    paymentGap,
-    pendingFirstPayment,
+    stats,
     subscribers: allSubscribers || [],
     payments: allPayments || [],
   };
 }
 
 export default async function FinancialsPage() {
-  const {
-    expectedMRR,
-    activeUserCount,
-    collectedThisMonth,
-    usersWhoPayedThisMonth,
-    paymentGap,
-    pendingFirstPayment,
-    subscribers,
-    payments,
-  } = await getFinancialsData();
-
-  const isOverCollected = paymentGap < 0;
+  const { stats, subscribers, payments } = await getFinancialsData();
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6">
@@ -98,50 +167,11 @@ export default async function FinancialsPage() {
         </p>
       </div>
 
-      {/* Two Column Layout - 60/40 split */}
-      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-6 items-stretch">
-        {/* Left Column - Analytics */}
-        <FinancialsAnalytics
-          subscribers={subscribers}
-          payments={payments as Payment[]}
-        />
-
-        {/* Right Column - Stats Cards */}
-        <div className="flex flex-col gap-4">
-          <StatsCard
-            title="Expected MRR"
-            value={`Rs. ${expectedMRR.toLocaleString()}`}
-            subtitle="Estimated monthly revenue"
-            icon={TrendingUp}
-            tooltip="Calculated as Rs.500 × number of active subscribers. This is a rough estimate assuming each user contributes at least Rs.500/month."
-            userCount={activeUserCount}
-          />
-          <StatsCard
-            title="Collected This Month"
-            value={`Rs. ${collectedThisMonth.toLocaleString()}`}
-            subtitle="Payments this month"
-            icon={DollarSign}
-            userCount={usersWhoPayedThisMonth}
-          />
-          <StatsCard
-            title="Payment Gap"
-            value={`${isOverCollected ? '+' : '-'}Rs. ${Math.abs(paymentGap).toLocaleString()}`}
-            subtitle={isOverCollected ? "Over-collected" : "Missing payments"}
-            icon={isOverCollected ? TrendingUp : TrendingDown}
-            valueClassName={isOverCollected ? "text-green-600" : "text-red-600"}
-            iconClassName={isOverCollected ? "text-green-600" : "text-red-600"}
-            iconBgClassName={isOverCollected ? "bg-green-50" : "bg-red-50"}
-          />
-          <StatsCard
-            title="Pending First Payment"
-            value={pendingFirstPayment}
-            subtitle="No payments yet"
-            icon={UserPlus}
-            href="/subscribers?noPayments=true"
-          />
-        </div>
-      </div>
+      <FinancialsPageClient
+        stats={stats}
+        subscribers={subscribers}
+        payments={payments as Payment[]}
+      />
     </div>
   );
 }
-

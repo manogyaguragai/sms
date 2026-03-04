@@ -345,35 +345,41 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
       await logPaymentCreation(paymentData.id, subscriber.full_name, amountValue);
     }
 
-    // Fetch ALL payments for this subscriber to recalculate end date from all periods
+    // Fetch ALL payments for this subscriber to recalculate per-frequency end dates
     const { data: allPayments } = await supabase
       .from('payments')
       .select('*')
       .eq('subscriber_id', subscriber.id);
 
-    const allPeriods: MonthSelection[] = [];
-    if (allPayments) {
-      for (const p of allPayments) {
+    // Group payments by payment_for and calculate end date per frequency
+    const frequencies: string[] = subscriber.frequency || [];
+    const updatedEndDates: Record<string, string> = {};
+
+    for (const freq of frequencies) {
+      const freqPayments = (allPayments || []).filter((p: any) => p.payment_for === freq);
+      if (freqPayments.length === 0) continue; // No payments = no end date
+
+      const freqPeriods: MonthSelection[] = [];
+      for (const p of freqPayments) {
         const periods = getPeriodsFromPayment(p);
-        allPeriods.push(...periods);
+        freqPeriods.push(...periods);
+      }
+      // Also include selected months if they belong to this frequency
+      if (paymentFor === freq) {
+        freqPeriods.push(...selectedMonths);
+      }
+
+      if (freqPeriods.length > 0) {
+        const freqEndDate = calculateEndDateFromPeriods(freqPeriods);
+        updatedEndDates[freq] = freqEndDate.toISOString();
       }
     }
-    // Fallback: include selected months in case parsing fails for some payments
-    allPeriods.push(...selectedMonths);
 
-    const newEndDate = calculateEndDateFromPeriods(allPeriods);
-
-    // Build per-frequency end dates update
-    const currentEndDates: Record<string, string> = subscriber.subscription_end_dates || {};
-    const updatedEndDates = { ...currentEndDates };
-    if (paymentFor) {
-      updatedEndDates[paymentFor] = newEndDate.toISOString();
-    }
-    // Soonest end date across all frequencies
+    // Soonest end date across all frequencies that have payments
     const allEndDateValues = Object.values(updatedEndDates).map(d => new Date(d).getTime());
     const soonestEndDate = allEndDateValues.length > 0
       ? new Date(Math.min(...allEndDateValues)).toISOString()
-      : newEndDate.toISOString();
+      : new Date().toISOString();
 
     const { error: updateError } = await supabase
       .from('subscribers')
