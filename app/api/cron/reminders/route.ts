@@ -10,6 +10,7 @@ interface SubscriberReminder {
   daysUntilExpiry: number;
   subscriptionEndDate: string;
   monthlyRate: number;
+  frequency: string;
 }
 
 interface InactiveSubscriberInfo {
@@ -17,6 +18,7 @@ interface InactiveSubscriberInfo {
   email: string;
   subscriptionEndDate: string;
   daysOverdue: number;
+  frequency: string;
 }
 
 // Grace period in days before marking subscriber as inactive
@@ -66,31 +68,53 @@ export async function GET(request: NextRequest) {
     const subscribersToDeactivate: InactiveSubscriberInfo[] = [];
     const subscriberIdsToUpdate: string[] = [];
 
-    // Check each subscriber for reminder eligibility and expiry
+    // Check each subscriber's per-frequency end dates
     for (const subscriber of subscribers) {
-      const endDate = startOfDay(new Date(subscriber.subscription_end_date));
-      const daysUntilExpiry = differenceInDays(endDate, today);
-      const daysOverdue = differenceInDays(today, endDate);
+      const endDates: Record<string, string> = subscriber.subscription_end_dates || {};
+      const frequencies: string[] = subscriber.frequency || [];
 
-      // Add to reminder list if days until expiry matches the subscriber's reminder setting
-      if (daysUntilExpiry === subscriber.reminder_days_before) {
-        subscribersNeedingReminder.push({
-          name: subscriber.full_name,
-          email: subscriber.email,
-          daysUntilExpiry,
-          subscriptionEndDate: subscriber.subscription_end_date,
-          monthlyRate: subscriber.monthly_rate,
-        });
+      // Track whether ALL frequencies are overdue beyond grace period
+      let allOverdue = true;
+      let hasAnyFrequency = false;
+
+      for (const freq of frequencies) {
+        const endDateStr = endDates[freq];
+        if (!endDateStr) continue;
+
+        hasAnyFrequency = true;
+        const endDate = startOfDay(new Date(endDateStr));
+        const daysUntilExpiry = differenceInDays(endDate, today);
+        const daysOverdue = differenceInDays(today, endDate);
+
+        // Add to reminder list if days until expiry matches the subscriber's reminder setting
+        if (daysUntilExpiry === subscriber.reminder_days_before) {
+          subscribersNeedingReminder.push({
+            name: subscriber.full_name,
+            email: subscriber.email,
+            daysUntilExpiry,
+            subscriptionEndDate: endDateStr,
+            monthlyRate: subscriber.monthly_rate,
+            frequency: freq,
+          });
+        }
+
+        // Check if this frequency is expired beyond grace period
+        if (daysOverdue > GRACE_PERIOD_DAYS) {
+          subscribersToDeactivate.push({
+            name: subscriber.full_name,
+            email: subscriber.email,
+            subscriptionEndDate: endDateStr,
+            daysOverdue,
+            frequency: freq,
+          });
+        } else {
+          // At least one frequency is still within grace period
+          allOverdue = false;
+        }
       }
 
-      // Check if subscription is expired beyond grace period
-      if (daysOverdue > GRACE_PERIOD_DAYS) {
-        subscribersToDeactivate.push({
-          name: subscriber.full_name,
-          email: subscriber.email,
-          subscriptionEndDate: subscriber.subscription_end_date,
-          daysOverdue,
-        });
+      // Only mark subscriber as inactive if ALL frequencies are expired beyond grace
+      if (hasAnyFrequency && allOverdue) {
         subscriberIdsToUpdate.push(subscriber.id);
       }
     }
@@ -115,7 +139,7 @@ export async function GET(request: NextRequest) {
 
     // Handle expired subscriptions if needed
     if (subscribersToDeactivate.length > 0) {
-      // Update subscribers to inactive status
+      // Update subscribers to inactive status (only those with ALL frequencies expired)
       const statusNote = `Marked inactive on ${format(today, 'MMM d, yyyy')} due to subscription expiry without payment (${GRACE_PERIOD_DAYS}-day grace period exceeded)`;
       
       for (const subscriberId of subscriberIdsToUpdate) {
@@ -132,7 +156,7 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Send inactive notifications
+      // Send inactive notifications (includes all overdue entries)
       const emailResult = await sendInactiveSubscriberEmail({
         subscribers: subscribersToDeactivate,
       });
@@ -150,11 +174,11 @@ export async function GET(request: NextRequest) {
       subscribersNeedingReminder: subscribersNeedingReminder.length,
       reminderEmailSent,
       reminderSmsSent,
-      inactiveCount: subscribersToDeactivate.length,
+      inactiveCount: subscriberIdsToUpdate.length,
       inactiveEmailSent,
       inactiveSmsSent,
-      reminders: subscribersNeedingReminder.map(s => s.name),
-      inactiveSubscribers: subscribersToDeactivate.map(s => s.name),
+      reminders: subscribersNeedingReminder.map(s => `${s.name} (${s.frequency})`),
+      inactiveSubscribers: subscribersToDeactivate.map(s => `${s.name} (${s.frequency})`),
     });
 
   } catch (error) {

@@ -10,6 +10,7 @@ interface InactiveSubscriberInfo {
   email: string;
   subscriptionEndDate: string;
   daysOverdue: number;
+  frequency: string;
 }
 
 export async function testCronJobAction() {
@@ -32,21 +33,38 @@ export async function testCronJobAction() {
     const today = startOfDay(nowInNepal);
     
     // Collect subscribers whose subscription is ending within their reminder window
-    const subscribersNeedingReminder = [];
+    const subscribersNeedingReminder: {
+      name: string;
+      email: string | null;
+      daysUntilExpiry: number;
+      subscriptionEndDate: string;
+      monthlyRate: number;
+      frequency: string;
+    }[] = [];
 
     for (const subscriber of subscribers) {
-      const endDate = startOfDay(new Date(subscriber.subscription_end_date));
-      const daysUntilExpiry = differenceInDays(endDate, today);
+      const endDates: Record<string, string> = subscriber.subscription_end_dates || {};
+      const frequencies: string[] = subscriber.frequency || [];
 
-      // Check if days until expiry matches the subscriber's reminder setting
-      if (daysUntilExpiry === subscriber.reminder_days_before) {
-        subscribersNeedingReminder.push({
-          name: subscriber.full_name,
-          email: subscriber.email,
-          daysUntilExpiry,
-          subscriptionEndDate: subscriber.subscription_end_date,
-          monthlyRate: subscriber.monthly_rate || 0,
-        });
+      // Check each frequency's end date independently
+      for (const freq of frequencies) {
+        const endDateStr = endDates[freq];
+        if (!endDateStr) continue;
+
+        const endDate = startOfDay(new Date(endDateStr));
+        const daysUntilExpiry = differenceInDays(endDate, today);
+
+        // Check if days until expiry matches the subscriber's reminder setting
+        if (daysUntilExpiry === subscriber.reminder_days_before) {
+          subscribersNeedingReminder.push({
+            name: subscriber.full_name,
+            email: subscriber.email,
+            daysUntilExpiry,
+            subscriptionEndDate: endDateStr,
+            monthlyRate: subscriber.monthly_rate || 0,
+            frequency: freq,
+          });
+        }
       }
     }
 
@@ -115,17 +133,38 @@ export async function checkExpiredSubscriptions() {
     const subscriberIdsToUpdate: string[] = [];
 
     for (const subscriber of subscribers) {
-      const endDate = startOfDay(new Date(subscriber.subscription_end_date));
-      const daysOverdue = differenceInDays(today, endDate);
+      const endDates: Record<string, string> = subscriber.subscription_end_dates || {};
+      const frequencies: string[] = subscriber.frequency || [];
 
-      // Check if subscription is expired beyond grace period
-      if (daysOverdue > GRACE_PERIOD_DAYS) {
-        subscribersToDeactivate.push({
-          name: subscriber.full_name,
-          email: subscriber.email,
-          subscriptionEndDate: subscriber.subscription_end_date,
-          daysOverdue,
-        });
+      // Track whether ALL frequencies are overdue beyond grace period
+      let allOverdue = true;
+      let hasAnyFrequency = false;
+
+      for (const freq of frequencies) {
+        const endDateStr = endDates[freq];
+        if (!endDateStr) continue;
+
+        hasAnyFrequency = true;
+        const endDate = startOfDay(new Date(endDateStr));
+        const daysOverdue = differenceInDays(today, endDate);
+
+        if (daysOverdue > GRACE_PERIOD_DAYS) {
+          // This frequency is overdue — add to notification list
+          subscribersToDeactivate.push({
+            name: subscriber.full_name,
+            email: subscriber.email,
+            subscriptionEndDate: endDateStr,
+            daysOverdue,
+            frequency: freq,
+          });
+        } else {
+          // At least one frequency is still within grace period
+          allOverdue = false;
+        }
+      }
+
+      // Only mark subscriber as inactive if ALL frequencies are expired beyond grace
+      if (hasAnyFrequency && allOverdue) {
         subscriberIdsToUpdate.push(subscriber.id);
       }
     }
@@ -138,7 +177,7 @@ export async function checkExpiredSubscriptions() {
       };
     }
 
-    // Update all expired subscribers to inactive status with a note
+    // Update all fully-expired subscribers to inactive status with a note
     const statusNote = `Marked inactive on ${format(today, 'MMM d, yyyy')} due to subscription expiry without payment (${GRACE_PERIOD_DAYS}-day grace period exceeded)`;
     
     for (const subscriberId of subscriberIdsToUpdate) {
@@ -155,7 +194,7 @@ export async function checkExpiredSubscriptions() {
       }
     }
 
-    // Send admin notifications
+    // Send admin notifications (includes all overdue entries, even partial)
     const emailResult = await sendInactiveSubscriberEmail({
       subscribers: subscribersToDeactivate,
     });
@@ -166,11 +205,11 @@ export async function checkExpiredSubscriptions() {
 
     return {
       success: true,
-      message: `${subscribersToDeactivate.length} subscriber(s) marked inactive.`,
-      inactiveCount: subscribersToDeactivate.length,
+      message: `${subscriberIdsToUpdate.length} subscriber(s) marked inactive. ${subscribersToDeactivate.length} overdue subscription(s) reported.`,
+      inactiveCount: subscriberIdsToUpdate.length,
       emailSent: emailResult.success,
       smsSent: smsResult.success,
-      subscribers: subscribersToDeactivate.map(s => s.name),
+      subscribers: subscribersToDeactivate.map(s => `${s.name} (${s.frequency})`),
     };
 
   } catch (error: any) {

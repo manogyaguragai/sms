@@ -5,12 +5,22 @@ export const resend = new Resend(process.env.RESEND_API_KEY);
 // Admin email for notifications - defaults to Resend test email
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'delivered@resend.dev';
 
+function freqLabel(freq: string): string {
+  switch (freq) {
+    case 'monthly': return 'Monthly';
+    case 'annually': return 'Annually';
+    case '12_hajar': return '12 Hajar';
+    default: return freq.charAt(0).toUpperCase() + freq.slice(1);
+  }
+}
+
 interface SubscriberReminder {
   name: string;
   email: string | null;
   daysUntilExpiry: number;
   subscriptionEndDate: string;
   monthlyRate: number;
+  frequency: string;
 }
 
 interface AdminReminderEmailProps {
@@ -26,6 +36,7 @@ export async function sendAdminReminderEmail({ subscribers }: AdminReminderEmail
     <tr style="border-bottom: 1px solid #e5e7eb;">
       <td style="padding: 12px; text-align: left;">${sub.name}</td>
       <td style="padding: 12px; text-align: left;">${sub.email || 'N/A'}</td>
+      <td style="padding: 12px; text-align: center;"><span style="display:inline-block;padding:2px 8px;border-radius:4px;background:#f3f4f6;font-weight:600;">${freqLabel(sub.frequency)}</span></td>
       <td style="padding: 12px; text-align: center;">${sub.daysUntilExpiry} day${sub.daysUntilExpiry === 1 ? '' : 's'}</td>
       <td style="padding: 12px; text-align: left;">${new Date(sub.subscriptionEndDate).toLocaleDateString('en-US', {
         weekday: 'short',
@@ -59,6 +70,7 @@ export async function sendAdminReminderEmail({ subscribers }: AdminReminderEmail
                 <tr style="background: #f3f4f6;">
                   <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Name</th>
                   <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Email</th>
+                  <th style="padding: 12px; text-align: center; font-weight: 600; color: #374151;">Subscription</th>
                   <th style="padding: 12px; text-align: center; font-weight: 600; color: #374151;">Days Left</th>
                   <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Expiry Date</th>
                   <th style="padding: 12px; text-align: right; font-weight: 600; color: #374151;">Monthly Rate</th>
@@ -135,6 +147,7 @@ interface InactiveSubscriberInfo {
   email: string | null;
   subscriptionEndDate: string;
   daysOverdue: number;
+  frequency: string;
 }
 
 interface InactiveSubscribersEmailProps {
@@ -150,6 +163,7 @@ export async function sendInactiveSubscriberEmail({ subscribers }: InactiveSubsc
     <tr style="border-bottom: 1px solid #e5e7eb;">
       <td style="padding: 12px; text-align: left;">${sub.name}</td>
       <td style="padding: 12px; text-align: left;">${sub.email || 'N/A'}</td>
+      <td style="padding: 12px; text-align: center;"><span style="display:inline-block;padding:2px 8px;border-radius:4px;background:#fef2f2;font-weight:600;color:#991b1b;">${freqLabel(sub.frequency)}</span></td>
       <td style="padding: 12px; text-align: left;">${new Date(sub.subscriptionEndDate).toLocaleDateString('en-US', {
         weekday: 'short',
         year: 'numeric',
@@ -182,6 +196,7 @@ export async function sendInactiveSubscriberEmail({ subscribers }: InactiveSubsc
                 <tr style="background: #fef2f2;">
                   <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Name</th>
                   <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Email</th>
+                  <th style="padding: 12px; text-align: center; font-weight: 600; color: #374151;">Subscription</th>
                   <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Expired On</th>
                   <th style="padding: 12px; text-align: center; font-weight: 600; color: #374151;">Overdue</th>
                 </tr>
