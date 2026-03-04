@@ -401,8 +401,8 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validation: Check if payment_for is selected (when subscriber has multiple frequencies)
-    if (!paymentFor && (subscriber.frequency || []).length > 1) {
+    // Validation: Check if payment_for is selected
+    if (!paymentFor) {
       toast.error('Please select which subscription this payment is for');
       return;
     }
@@ -593,7 +593,6 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-4 pr-2">
             {/* Payment For (Subscription Type) */}
-            {(subscriber.frequency || []).length > 1 && (
               <div className="space-y-2">
                 <Label className="text-gray-700 flex items-center gap-2">
                   <Tag className="w-4 h-4" />
@@ -611,8 +610,7 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-            )}
+            </div>
 
           {/* Payment Period Selector */}
           <div className="space-y-2">
