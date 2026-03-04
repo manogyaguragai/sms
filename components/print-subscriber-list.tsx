@@ -132,14 +132,9 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
             font-size: 10px;
             font-weight: 600;
           }
-          .badge-monthly {
-            background: #dbeafe;
-            color: #1e40af;
-          }
-          .badge-annual {
-            background: #dcfce7;
-            color: #166534;
-          }
+          .badge-monthly { background: #dbeafe; color: #1e40af; }
+          .badge-annual { background: #dcfce7; color: #166534; }
+          .badge-12_hajar { background: #f3e8ff; color: #6b21a8; }
           .badge-active {
             background: #dcfce7;
             color: #166534;
@@ -250,9 +245,11 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
                       </span>
                     </td>
                     <td>
-                      <span className={`badge badge-${sub.frequency}`}>
-                        {sub.frequency.charAt(0).toUpperCase() + sub.frequency.slice(1)}
-                      </span>
+                      {(Array.isArray(sub.frequency) ? sub.frequency : [sub.frequency]).map((f: string) => (
+                        <span key={f} className={`badge badge-${f}`} style={{ marginRight: '2px' }}>
+                          {f === '12_hajar' ? '12 Hajar' : f.charAt(0).toUpperCase() + f.slice(1)}
+                        </span>
+                      ))}
                     </td>
                     <td>Rs. {Number(sub.monthly_rate).toLocaleString()}</td>
                     <td className="text-center">{sub.payment_count}</td>

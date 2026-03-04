@@ -605,7 +605,7 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
                     ? <span className="text-gray-400">None selected</span>
                     : getSelectedPeriodsLabel()
                   }
-                {subscriber.frequency === 'monthly' && selectedMonths.length > 1 && (
+                  {(Array.isArray(subscriber.frequency) ? (subscriber.frequency.includes('monthly') || subscriber.frequency.includes('12_hajar')) : (subscriber.frequency === 'monthly' || subscriber.frequency === '12_hajar')) && selectedMonths.length > 1 && (
                   <span className="text-blue-600 ml-2">({selectedMonths.length} months)</span>
                 )}
               </div>

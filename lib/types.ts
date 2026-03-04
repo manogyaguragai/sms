@@ -64,10 +64,11 @@ export interface Subscriber {
   email: string | null;
   phone: string | null;
   status: 'active' | 'expired' | 'cancelled' | 'inactive';
-  frequency: 'monthly' | 'annual';
+  frequency: string[];
   monthly_rate: number;
   reminder_days_before: number;
   subscription_end_date: string;
+  subscription_end_dates: Record<string, string>;
   created_at: string;
   status_notes: string | null;
   referred_by: string | null;
@@ -97,7 +98,7 @@ export interface SubscriberFormData {
   full_name: string;
   email?: string;
   phone?: string;
-  frequency: 'monthly' | 'annual';
+  frequency: string[];
   reminder_days_before: number;
   referred_by?: string;
 }

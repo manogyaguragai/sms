@@ -271,7 +271,7 @@ export function SubscriberStatement({ subscriber, open, onClose }: SubscriberSta
         <div><div class="lbl">Subscriber</div><div class="val">${subscriber.full_name}</div></div>
         <div><div class="lbl">Phone</div><div class="val">${subscriber.phone || '—'}</div></div>
         <div><div class="lbl">Email</div><div class="val">${subscriber.email || '—'}</div></div>
-        <div><div class="lbl">Type</div><div class="val" style="text-transform:capitalize">${subscriber.frequency}</div></div>
+        <div><div class="lbl">Type</div><div class="val" style="text-transform:capitalize">${Array.isArray(subscriber.frequency) ? subscriber.frequency.join(', ') : subscriber.frequency}</div></div>
         <div><div class="lbl">Member Since</div><div class="val">${formatNepaliDate(subscriber.created_at, 'short')}</div></div>
       </div>
       <div class="period-info">Statement Period: ${statementPeriod}</div>
@@ -397,7 +397,7 @@ export function SubscriberStatement({ subscriber, open, onClose }: SubscriberSta
                 </div>
                 <div>
                   <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">Type</p>
-                  <p className="text-sm text-gray-700 mt-0.5 capitalize">{subscriber.frequency}</p>
+                    <p className="text-sm text-gray-700 mt-0.5 capitalize">{Array.isArray(subscriber.frequency) ? subscriber.frequency.join(', ') : subscriber.frequency}</p>
                 </div>
                 <div>
                   <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">Member Since</p>

@@ -47,7 +47,7 @@ export async function exportData(
             Email: sub.email,
             Phone: sub.phone,
             Status: sub.status,
-            Frequency: sub.frequency,
+            Frequency: Array.isArray(sub.frequency) ? sub.frequency.join(', ') : sub.frequency,
 
             'Reminder Days': sub.reminder_days_before,
             'Subscription End Date': formatDate(sub.subscription_end_date),

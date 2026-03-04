@@ -243,6 +243,7 @@ export function SubscriberTable({
               <SelectItem value="all">All Frequency</SelectItem>
               <SelectItem value="monthly">Monthly</SelectItem>
               <SelectItem value="annual">Annual</SelectItem>
+              <SelectItem value="12_hajar">12 Hajar</SelectItem>
             </SelectContent>
           </Select>
 
@@ -314,7 +315,7 @@ export function SubscriberTable({
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
                   <div className="flex items-center gap-3">
                     <Badge variant="outline" className="border-gray-200 text-gray-500 text-xs capitalize">
-                      {subscriber.frequency}
+                      {Array.isArray(subscriber.frequency) ? subscriber.frequency.join(', ') : subscriber.frequency}
                     </Badge>
                   </div>
                   <DropdownMenu>
@@ -427,7 +428,7 @@ export function SubscriberTable({
                   <TableCell>{getStatusBadge(subscriber.status)}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="border-gray-300 text-gray-600 capitalize">
-                      {subscriber.frequency}
+                        {Array.isArray(subscriber.frequency) ? subscriber.frequency.join(', ') : subscriber.frequency}
                     </Badge>
                     </TableCell>
                   <TableCell className="text-gray-500">

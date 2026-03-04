@@ -89,8 +89,12 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
   const endDate = startOfDay(new Date(subscriber.subscription_end_date));
   const daysRemaining = differenceInDays(endDate, today);
   
-  // Calculate consumed days (Assuming simplified cycle based on frequency)
-  const currentIntervalStart = subscriber.frequency === 'monthly' 
+  // Per-frequency end dates
+  const endDates: Record<string, string> = subscriber.subscription_end_dates || {};
+
+  // Calculate consumed days using soonest end date
+  const soonestFreq = subscriber.frequency?.find(f => endDates[f]) || subscriber.frequency?.[0] || 'monthly';
+  const currentIntervalStart = soonestFreq === 'monthly' 
     ? subMonths(endDate, 1) 
     : subYears(endDate, 1);
   const daysConsumed = differenceInDays(today, currentIntervalStart);
@@ -227,7 +231,7 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 {getStatusBadge(subscriber.status)}
                 <Badge variant="outline" className="border-gray-200 text-gray-600 capitalize">
-                  {subscriber.frequency}
+                  {subscriber.frequency?.join(', ') || 'N/A'}
                 </Badge>
               </div>
             </div>
@@ -271,43 +275,105 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
           </div>
         </div>
 
-        {/* Payment Period Calendar - positioned after buttons with gap */}
-        <div className="hidden md:flex items-stretch" style={{ width: '220px' }}>
-          <PaymentPeriodCalendar
-            payments={payments}
-            className="w-full h-full"
-          />
+        {/* Payment Period Calendars - one per frequency */}
+        <div className="hidden md:flex items-stretch gap-3">
+          {(subscriber.frequency || []).map((freq) => (
+            <div key={freq} style={{ width: '320px' }}>
+              <PaymentPeriodCalendar
+                payments={payments}
+                frequency={[freq]}
+                subscriptionEndDates={subscriber.subscription_end_dates}
+                className="w-full h-full"
+              />
+            </div>
+          ))}
         </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Subscription Status Card */}
-        <Card className="bg-white border-gray-200 shadow-sm col-span-1 lg:col-span-2">
-          <CardContent className="p-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div
-                className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                  daysRemaining <= 0
+        {/* Per-frequency Subscription Status Cards */}
+        {Object.entries(endDates).map(([freq, date]) => {
+          const freqDays = differenceInDays(startOfDay(new Date(date)), today);
+          const freqIntervalStart = freq === 'monthly'
+            ? subMonths(startOfDay(new Date(date)), 1)
+            : subYears(startOfDay(new Date(date)), 1);
+          const freqConsumed = differenceInDays(today, freqIntervalStart);
+          const freqLabel = freq === '12_hajar' ? '12 Hajar' : freq.charAt(0).toUpperCase() + freq.slice(1);
+
+          return (
+            <Card key={freq} className="bg-white border-gray-200 shadow-sm">
+              <CardContent className="p-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center ${freqDays <= 0
+                      ? 'bg-red-50'
+                      : freqDays <= 7
+                        ? 'bg-amber-50'
+                        : 'bg-green-50'
+                      }`}
+                  >
+                    <Clock
+                      className={`w-5 h-5 ${freqDays <= 0
+                        ? 'text-red-600'
+                        : freqDays <= 7
+                          ? 'text-amber-600'
+                          : 'text-green-600'
+                        }`}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 font-medium">{freqLabel} Subscription</p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-lg font-semibold text-gray-900">
+                        {freqDays <= 0 ? (
+                          <span className="text-red-600">Expired</span>
+                        ) : (
+                          `${freqDays} days remaining`
+                        )}
+                      </p>
+                      <Separator orientation="vertical" className="h-4 bg-gray-200" />
+                      <p className="text-sm text-gray-500">
+                        {freqConsumed > 0 ? freqConsumed : 0} days consumed
+                      </p>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      Ends: {formatNepaliDate(date, 'short')}
+                    </p>
+                  </div>
+                </div>
+                <Button size="icon" variant="ghost" className="text-gray-400 hover:text-blue-600" onClick={() => setShowDateDialog(true)}>
+                  <Settings className="w-4 h-4" />
+                </Button>
+              </CardContent>
+            </Card>
+          );
+        })}
+
+        {/* Fallback: if no end dates but subscriber has frequency */}
+        {Object.keys(endDates).length === 0 && (
+          <Card className="bg-white border-gray-200 shadow-sm col-span-1 lg:col-span-2">
+            <CardContent className="p-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center ${daysRemaining <= 0
                     ? 'bg-red-50'
                     : daysRemaining <= 7
-                    ? 'bg-amber-50'
-                    : 'bg-green-50'
-                }`}
-              >
-                <Clock
-                  className={`w-5 h-5 ${
-                    daysRemaining <= 0
+                      ? 'bg-amber-50'
+                      : 'bg-green-50'
+                    }`}
+                >
+                  <Clock
+                    className={`w-5 h-5 ${daysRemaining <= 0
                       ? 'text-red-600'
                       : daysRemaining <= 7
-                      ? 'text-amber-600'
-                      : 'text-green-600'
-                  }`}
-                />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Subscription Status</p>
-                <div className="flex items-center gap-3">
+                        ? 'text-amber-600'
+                        : 'text-green-600'
+                      }`}
+                  />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Subscription Status</p>
                   <p className="text-lg font-semibold text-gray-900">
                     {daysRemaining <= 0 ? (
                       <span className="text-red-600">Expired</span>
@@ -315,18 +381,14 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
                       `${daysRemaining} days remaining`
                     )}
                   </p>
-                  <Separator orientation="vertical" className="h-4 bg-gray-200" />
-                  <p className="text-sm text-gray-500">
-                    {daysConsumed > 0 ? daysConsumed : 0} days consumed
-                  </p>
                 </div>
               </div>
-            </div>
-            <Button size="icon" variant="ghost" className="text-gray-400 hover:text-blue-600" onClick={() => setShowDateDialog(true)}>
-              <Settings className="w-4 h-4" />
-            </Button>
-          </CardContent>
-        </Card>
+              <Button size="icon" variant="ghost" className="text-gray-400 hover:text-blue-600" onClick={() => setShowDateDialog(true)}>
+                <Settings className="w-4 h-4" />
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Last Paid Date */}
         <Card className="bg-white border-gray-200 shadow-sm">

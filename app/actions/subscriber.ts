@@ -341,3 +341,109 @@ export async function logPaymentUpdate(
   await logPaymentUpdated(paymentId, subscriberName, changes);
 }
 
+/**
+ * Search subscribers by name for autocomplete.
+ * Returns up to 5 matching subscribers with fields needed for prepopulation.
+ */
+export async function searchSubscribersByName(
+  query: string
+): Promise<{
+  id: string;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  referred_by: string | null;
+  reminder_days_before: number;
+  frequency: string[];
+}[]> {
+  if (!query || query.trim().length < 2) return [];
+
+  const supabase = createAdminClient();
+
+  const { data, error } = await supabase
+    .from('subscribers')
+    .select('id, full_name, email, phone, referred_by, reminder_days_before, frequency')
+    .ilike('full_name', `%${query.trim()}%`)
+    .limit(5);
+
+  if (error || !data) return [];
+  return data;
+}
+
+/**
+ * Update an existing subscriber's frequencies by merging new ones.
+ * Calculates per-frequency end dates and sets subscription_end_date to soonest.
+ */
+export async function updateSubscriberFrequencies(
+  subscriberId: string,
+  newFrequencies: string[]
+): Promise<{ success: boolean; message: string }> {
+  const supabase = createAdminClient();
+
+  try {
+    // Fetch current subscriber data
+    const { data: subscriber, error: fetchError } = await supabase
+      .from('subscribers')
+      .select('frequency, subscription_end_dates, full_name')
+      .eq('id', subscriberId)
+      .single();
+
+    if (fetchError || !subscriber) {
+      return { success: false, message: 'Subscriber not found' };
+    }
+
+    // Merge frequencies (deduplicate)
+    const existingFreqs: string[] = subscriber.frequency || [];
+    const mergedFreqs = [...new Set([...existingFreqs, ...newFrequencies])];
+
+    // Calculate end dates for new frequencies only (keep existing end dates)
+    const now = new Date();
+    const existingEndDates: Record<string, string> = subscriber.subscription_end_dates || {};
+    const updatedEndDates: Record<string, string> = { ...existingEndDates };
+
+    for (const freq of newFrequencies) {
+      if (!updatedEndDates[freq]) {
+        // New frequency — set its end date
+        if (freq === 'monthly') {
+          const endDate = new Date(now);
+          endDate.setMonth(endDate.getMonth() + 1);
+          updatedEndDates[freq] = endDate.toISOString();
+        } else {
+          // annual and 12_hajar are yearly
+          const endDate = new Date(now);
+          endDate.setFullYear(endDate.getFullYear() + 1);
+          updatedEndDates[freq] = endDate.toISOString();
+        }
+      }
+    }
+
+    // Soonest end date across all frequencies
+    const allEndDates = Object.values(updatedEndDates).map(d => new Date(d).getTime());
+    const soonestEndDate = new Date(Math.min(...allEndDates)).toISOString();
+
+    const { error: updateError } = await supabase
+      .from('subscribers')
+      .update({
+        frequency: mergedFreqs,
+        subscription_end_dates: updatedEndDates,
+        subscription_end_date: soonestEndDate,
+        status: 'active',
+      })
+      .eq('id', subscriberId);
+
+    if (updateError) throw updateError;
+
+    await logSubscriberUpdated(subscriberId, subscriber.full_name, {
+      frequency: mergedFreqs,
+      subscription_end_dates: updatedEndDates,
+    });
+
+    revalidatePath(`/subscribers/${subscriberId}`);
+    revalidatePath('/subscribers');
+    revalidatePath('/dashboard');
+    return { success: true, message: `Frequencies updated for ${subscriber.full_name}` };
+  } catch (error: any) {
+    return { success: false, message: error.message };
+  }
+}
+

@@ -24,7 +24,7 @@ export function SubscriberListPrintButton() {
           <td style="font-weight:500">${sub.full_name}</td>
           <td>${sub.phone || '—'}</td>
           <td><span class="badge badge-${sub.status}">${sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}</span></td>
-          <td><span class="badge badge-${sub.frequency}">${sub.frequency.charAt(0).toUpperCase() + sub.frequency.slice(1)}</span></td>
+          <td>${(Array.isArray(sub.frequency) ? sub.frequency : [sub.frequency]).map((f: string) => `<span class="badge badge-${f}">${f === '12_hajar' ? '12 Hajar' : f.charAt(0).toUpperCase() + f.slice(1)}</span>`).join(' ')}</td>
           <td class="text-center">${sub.payment_count}</td>
           <td class="text-right" style="font-weight:500">Rs. ${sub.total_paid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
           <td>${sub.last_payment_date ? formatNepaliDate(sub.last_payment_date, 'short') : '—'}</td>
@@ -90,6 +90,7 @@ export function SubscriberListPrintButton() {
             }
             .badge-monthly { background: #dbeafe; color: #1e40af; }
             .badge-annual { background: #dcfce7; color: #166534; }
+            .badge-12_hajar { background: #f3e8ff; color: #6b21a8; }
             .badge-active { background: #dcfce7; color: #166534; }
             .badge-inactive, .badge-expired, .badge-cancelled { background: #fee2e2; color: #991b1b; }
             .sn { width: 35px; text-align: center; color: #888; }
