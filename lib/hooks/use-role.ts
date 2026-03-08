@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import type { UserRole, Profile } from '@/lib/types';
+import { useCallback } from 'react';
+import { useUserProfile } from '@/lib/hooks/user-profile-context';
+import type { UserRole } from '@/lib/types';
 
 interface UseRoleResult {
   role: UserRole | null;
@@ -43,61 +43,16 @@ const roleHierarchy: Record<UserRole, number> = {
   staff: 1,
 };
 
+// Import Profile type locally to keep backward compatibility
+import type { Profile } from '@/lib/types';
+
 /**
- * React hook for accessing current user's role and permissions
- * Caches the profile in memory for the session
+ * React hook for accessing current user's role and permissions.
+ * Uses the shared UserProfileContext — profile is fetched ONCE at layout level
+ * and shared across sidebar + all pages.
  */
 export function useRole(): UseRoleResult {
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function fetchProfile() {
-      try {
-        const supabase = createClient();
-        
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          if (mounted) {
-            setProfile(null);
-            setIsLoading(false);
-          }
-          return;
-        }
-
-        const { data, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
-        if (mounted) {
-          if (profileError) {
-            // Profile might not exist yet (migration not run)
-            console.warn('Could not fetch profile:', profileError.message);
-            setProfile(null);
-          } else {
-            setProfile(data as Profile);
-          }
-          setIsLoading(false);
-        }
-      } catch (err) {
-        if (mounted) {
-          setError(err instanceof Error ? err : new Error('Failed to fetch profile'));
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchProfile();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const { profile, isLoading, error } = useUserProfile();
 
   const hasPermission = useCallback((permission: Permission): boolean => {
     if (!profile?.role) return false;

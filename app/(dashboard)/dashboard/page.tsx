@@ -12,39 +12,50 @@ import { formatNepaliDate } from '@/lib/nepali-date';
 
 async function getDashboardData() {
   const supabase = await createClient();
-
-  // Get all active subscribers
-  const { data: subscribers } = await supabase
-    .from('subscribers')
-    .select('*')
-    .eq('status', 'active');
-
-  // Get total subscriber count (all statuses)
-  const { count: totalAllSubscribers } = await supabase
-    .from('subscribers')
-    .select('*', { count: 'exact', head: true });
-
-  // Get expiring soon (next 10 days)
   const tenDaysFromNow = addDays(new Date(), 10).toISOString();
-  const { data: expiringSoon } = await supabase
-    .from('subscribers')
-    .select('*')
-    .eq('status', 'active')
-    .lte('subscription_end_date', tenDaysFromNow)
-    .gte('subscription_end_date', new Date().toISOString())
-    .order('subscription_end_date', { ascending: true });
+  const now = new Date().toISOString();
 
-  // Get all payments for analytics
-  const { data: allPayments } = await supabase
-    .from('payments')
-    .select('amount_paid, subscriber_id, payment_date');
-
-  // Get recent payments with subscriber info for chart
-  const { data: recentPayments } = await supabase
-    .from('payments')
-    .select('*, subscribers(id, full_name, email)')
-    .order('payment_date', { ascending: false })
-    .limit(10);
+  // Run all independent queries in parallel for maximum speed
+  const [
+    { data: subscribers },
+    { count: totalAllSubscribers },
+    { data: expiringSoon },
+    { data: allPayments },
+    { data: recentPayments },
+    { data: allSubscribers },
+  ] = await Promise.all([
+    // Get all active subscribers
+    supabase
+      .from('subscribers')
+      .select('*')
+      .eq('status', 'active'),
+    // Get total subscriber count (all statuses)
+    supabase
+      .from('subscribers')
+      .select('*', { count: 'exact', head: true }),
+    // Get expiring soon (next 10 days)
+    supabase
+      .from('subscribers')
+      .select('*')
+      .eq('status', 'active')
+      .lte('subscription_end_date', tenDaysFromNow)
+      .gte('subscription_end_date', now)
+      .order('subscription_end_date', { ascending: true }),
+    // Get all payments for analytics
+    supabase
+      .from('payments')
+      .select('amount_paid, subscriber_id, payment_date'),
+    // Get recent payments with subscriber info for chart
+    supabase
+      .from('payments')
+      .select('*, subscribers(id, full_name, email)')
+      .order('payment_date', { ascending: false })
+      .limit(10),
+    // Get all subscriber names (for top subscribers)
+    supabase
+      .from('subscribers')
+      .select('id, full_name'),
+  ]);
 
   // Calculate total revenue
   const totalRevenue = (allPayments || []).reduce((sum, p) => sum + Number(p.amount_paid), 0);
@@ -56,19 +67,13 @@ async function getDashboardData() {
     if (existing) {
       existing.totalPaid += Number(p.amount_paid);
     } else {
-      // We'll need to look up the name from recentPayments or subscribers
       paymentTotalsBySubscriber.set(p.subscriber_id, {
         id: p.subscriber_id,
-        full_name: '', // Will be filled below
+        full_name: '',
         totalPaid: Number(p.amount_paid),
       });
     }
   });
-
-  // Get subscriber names for top subscribers
-  const { data: allSubscribers } = await supabase
-    .from('subscribers')
-    .select('id, full_name');
 
   const subscriberNames = new Map<string, string>();
   (allSubscribers || []).forEach(s => {
