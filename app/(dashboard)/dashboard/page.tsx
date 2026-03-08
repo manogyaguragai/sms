@@ -19,6 +19,11 @@ async function getDashboardData() {
     .select('*')
     .eq('status', 'active');
 
+  // Get total subscriber count (all statuses)
+  const { count: totalAllSubscribers } = await supabase
+    .from('subscribers')
+    .select('*', { count: 'exact', head: true });
+
   // Get expiring soon (next 10 days)
   const tenDaysFromNow = addDays(new Date(), 10).toISOString();
   const { data: expiringSoon } = await supabase
@@ -121,6 +126,7 @@ async function getDashboardData() {
 
   return {
     totalSubscribers: subscribers?.length || 0,
+    totalAllSubscribers: totalAllSubscribers || 0,
     expiringSoon: (expiringSoon || []) as Subscriber[],
     recentPayments: (recentPayments || []) as PaymentWithSubscriber[],
     chartData,
@@ -130,7 +136,7 @@ async function getDashboardData() {
 }
 
 export default async function DashboardPage() {
-  const { totalSubscribers, expiringSoon, chartData, totalRevenue, topSubscribers } = await getDashboardData();
+  const { totalSubscribers, totalAllSubscribers, expiringSoon, chartData, totalRevenue, topSubscribers } = await getDashboardData();
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6">
@@ -146,8 +152,8 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <StatsCard
           title="Active Subscribers"
-          value={totalSubscribers}
-          subtitle="Currently active"
+          value={`${totalSubscribers}/${totalAllSubscribers}`}
+          subtitle="Active out of total"
           icon={Users}
           href="/subscribers"
         />
