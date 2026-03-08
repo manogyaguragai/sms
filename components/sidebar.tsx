@@ -35,7 +35,7 @@ interface NavItem {
 
 const allNavigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Financials', href: '/financials', icon: DollarSign },
+  // { name: 'Financials', href: '/financials', icon: DollarSign },
   { name: 'Subscribers', href: '/subscribers', icon: Users },
   { name: 'Add New', href: '/subscribers/new', icon: UserPlus },
   { name: 'Activity Logs', href: '/activity-logs', icon: Activity, requiredRoles: ['super_admin', 'admin'] },
