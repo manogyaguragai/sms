@@ -101,21 +101,26 @@ function calculateEndDateFromPeriods(periods: MonthSelection[]): Date | null {
 async function getSubscriber(id: string) {
   const supabase = await createClient();
 
-  const { data: subscriber, error: subscriberError } = await supabase
-    .from('subscribers')
-    .select('*')
-    .eq('id', id)
-    .single();
+  // Run subscriber and payments queries in parallel
+  const [subscriberResult, paymentsResult] = await Promise.all([
+    supabase
+      .from('subscribers')
+      .select('*')
+      .eq('id', id)
+      .single(),
+    supabase
+      .from('payments')
+      .select('*')
+      .eq('subscriber_id', id)
+      .order('payment_date', { ascending: false }),
+  ]);
+
+  const { data: subscriber, error: subscriberError } = subscriberResult;
+  const { data: payments } = paymentsResult;
 
   if (subscriberError || !subscriber) {
     return null;
   }
-
-  const { data: payments } = await supabase
-    .from('payments')
-    .select('*')
-    .eq('subscriber_id', id)
-    .order('payment_date', { ascending: false });
 
   const paymentList = (payments || []) as Payment[];
   const sub = subscriber as Subscriber;

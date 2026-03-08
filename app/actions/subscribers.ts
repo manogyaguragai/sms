@@ -46,15 +46,11 @@ export async function getSubscribersPaginated(
   // If filtering by no payments, we need to get subscriber IDs that have no payments
   let subscriberIdsWithNoPayments: string[] | null = null;
   if (noPayments) {
-    // Get all subscriber IDs
-    const { data: allSubscribers } = await supabase
-      .from('subscribers')
-      .select('id');
-    
-    // Get all subscriber IDs that have payments
-    const { data: payments } = await supabase
-      .from('payments')
-      .select('subscriber_id');
+    // Run both queries in parallel
+    const [{ data: allSubscribers }, { data: payments }] = await Promise.all([
+      supabase.from('subscribers').select('id'),
+      supabase.from('payments').select('subscriber_id'),
+    ]);
     
     const subscriberIdsWithPayments = new Set(
       (payments || []).map(p => p.subscriber_id)
