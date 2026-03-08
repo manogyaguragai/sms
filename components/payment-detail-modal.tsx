@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRole } from '@/lib/hooks/use-role';
 import { updatePayment, deletePayment, checkReceiptNumberExists } from '@/app/actions/subscriber';
@@ -52,6 +52,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Tag,
+  Camera,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Payment } from '@/lib/types';
@@ -98,6 +99,10 @@ export function PaymentDetailModal({ payment, open, onClose, subscriberFrequenci
   const [editFile, setEditFile] = useState<File | null>(null);
   const [editPreview, setEditPreview] = useState<string | null>(null);
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
+
+  // Refs for camera/gallery file inputs
+  const editCameraInputRef = useRef<HTMLInputElement>(null);
+  const editGalleryInputRef = useRef<HTMLInputElement>(null);
 
   // Calendar state
   const currentNepali = useMemo(() => new NepaliDate(new Date()), []);
@@ -694,19 +699,38 @@ export function PaymentDetailModal({ payment, open, onClose, subscriberFrequenci
                         className="w-full rounded-t-lg"
                       />
                     </div>
-                    <div className="flex items-center justify-center gap-2 p-2 bg-gray-50 border-t border-gray-200">
-                      <label className="cursor-pointer">
+                      <div className="flex items-center justify-center gap-2 p-2 bg-gray-50 border-t border-gray-200">
                         <input
+                          ref={editCameraInputRef}
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={handleFileChange}
+                          className="hidden"
+                        />
+                        <input
+                          ref={editGalleryInputRef}
                           type="file"
                           accept="image/*"
                           onChange={handleFileChange}
                           className="hidden"
                         />
-                        <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors">
-                          <Upload className="w-3 h-3" />
-                          Replace
-                        </span>
-                      </label>
+                        <button
+                          type="button"
+                          onClick={() => editCameraInputRef.current?.click()}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
+                        >
+                          <Camera className="w-3 h-3" />
+                          Camera
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => editGalleryInputRef.current?.click()}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-md transition-colors"
+                        >
+                          <ImageIcon className="w-3 h-3" />
+                          Gallery
+                        </button>
                       <Button
                         type="button"
                         variant="ghost"
@@ -721,26 +745,51 @@ export function PaymentDetailModal({ payment, open, onClose, subscriberFrequenci
                   </div>
                 ) : (
                   /* No image — show upload area */
-                  <div className="border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-lg p-4 transition-colors">
-                    <label className="cursor-pointer block">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileChange}
-                        className="hidden"
-                      />
-                      <div className="space-y-2 text-center">
-                        <div className="w-12 h-12 mx-auto bg-gray-100 rounded-lg flex items-center justify-center">
-                          <Upload className="w-6 h-6 text-gray-400" />
+                      <div className="border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-lg p-4 transition-colors">
+                        <input
+                          ref={editCameraInputRef}
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={handleFileChange}
+                          className="hidden"
+                        />
+                        <input
+                          ref={editGalleryInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileChange}
+                          className="hidden"
+                        />
+                        <div className="space-y-3 text-center">
+                          <div className="w-12 h-12 mx-auto bg-gray-100 rounded-lg flex items-center justify-center">
+                            <Upload className="w-6 h-6 text-gray-400" />
+                          </div>
+                          <p className="text-sm text-gray-600">
+                            Upload payment proof
+                          </p>
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => editCameraInputRef.current?.click()}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
+                            >
+                              <Camera className="w-3.5 h-3.5" />
+                              Take Photo
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => editGalleryInputRef.current?.click()}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-md transition-colors"
+                            >
+                              <ImageIcon className="w-3.5 h-3.5" />
+                              Gallery
+                            </button>
+                          </div>
+                          <p className="text-xs text-gray-400">
+                            Images will be compressed to max 1200px
+                          </p>
                         </div>
-                        <p className="text-sm text-gray-600">
-                          Click to upload payment proof
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          Images will be compressed to max 1200px
-                        </p>
-                      </div>
-                    </label>
                     {removeExistingImage && (
                       <div className="mt-2 text-center">
                         <Button

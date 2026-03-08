@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -35,7 +35,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Loader2, Upload, FileText, Image as ImageIcon, Calendar, ChevronLeft, ChevronRight, Check, Receipt, CreditCard, HelpCircle, AlertTriangle, Tag } from 'lucide-react';
+import { Loader2, Upload, FileText, Image as ImageIcon, Calendar, ChevronLeft, ChevronRight, Check, Receipt, CreditCard, HelpCircle, AlertTriangle, Tag, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth } from 'date-fns';
 import imageCompression from 'browser-image-compression';
@@ -59,6 +59,8 @@ interface MonthSelection {
 export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
   const router = useRouter();
   const supabase = createClient();
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [notes, setNotes] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -815,8 +817,9 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
                   </Button>
                 </div>
               ) : (
-                <label className="cursor-pointer block">
+                    <>
                   <input
+                        ref={cameraInputRef}
                     type="file"
                     accept="image/*"
                         capture="environment"
@@ -826,18 +829,46 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
                         }}
                     className="hidden"
                   />
-                  <div className="space-y-2">
+                      <input
+                        ref={galleryInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          handleFileChange(e);
+                          setProofError(null);
+                        }}
+                        className="hidden"
+                      />
+                      <div className="space-y-3">
                     <div className="w-12 h-12 mx-auto bg-gray-100 rounded-lg flex items-center justify-center">
                       <ImageIcon className="w-6 h-6 text-gray-400" />
                     </div>
                     <p className="text-sm text-gray-600">
-                      Click to upload payment voucher
+                          Upload payment voucher
                     </p>
+                        <div className="flex items-center justify-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => cameraInputRef.current?.click()}
+                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                          >
+                            <Camera className="w-4 h-4" />
+                            Take Photo
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => galleryInputRef.current?.click()}
+                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg transition-colors"
+                          >
+                            <ImageIcon className="w-4 h-4" />
+                            Gallery
+                          </button>
+                        </div>
                     <p className="text-xs text-gray-400">
                       Images will be compressed to max 1200px
                     </p>
                   </div>
-                </label>
+                    </>
               )}
             </div>
               {proofError && (
