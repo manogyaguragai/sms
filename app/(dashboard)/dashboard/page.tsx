@@ -163,7 +163,7 @@ export default async function DashboardPage() {
           value={`Rs. ${totalRevenue.toLocaleString()}`}
           subtitle="All-time collections"
           icon={Receipt}
-          href="/financials"
+          href="/subscribers"
         />
         <TopSubscribersCard subscribers={topSubscribers} />
       </div>

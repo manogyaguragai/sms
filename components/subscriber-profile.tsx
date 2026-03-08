@@ -52,6 +52,7 @@ import { updateSubscriptionDate, toggleSubscriberStatus } from '@/app/actions/su
 import { formatNepaliDate, formatNepaliDateTime, toNepaliDateString, fromNepaliDateString, NEPALI_MONTHS } from '@/lib/nepali-date';
 import { PaymentPeriodCalendar } from '@/components/payment-period-calendar';
 import { SubscriberStatement } from '@/components/subscriber-statement';
+import { TotalPaymentCard } from '@/components/total-payment-card';
 
 interface SubscriberProfileProps {
   subscriber: Subscriber;
@@ -282,6 +283,14 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
               />
             </div>
           ))}
+          {/* Total Payment Summary */}
+          <div className="lg:w-[260px] lg:flex-shrink-0">
+            <TotalPaymentCard
+              payments={payments}
+              frequencies={subscriber.frequency || []}
+              className="w-full h-full"
+            />
+          </div>
         </div>
       </div>
 
