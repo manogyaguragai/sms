@@ -171,7 +171,7 @@ export default function UsersClient({ profile, role, initialUsers, creatableRole
             <p>No users to manage</p>
             <p className="text-sm mt-1">
               {role === 'admin' 
-                ? 'You can manage staff users only'
+                ? 'You can manage staff and view-only users'
                 : 'Add users to get started'}
             </p>
           </CardContent>

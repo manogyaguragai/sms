@@ -20,8 +20,8 @@ export default async function UsersPage() {
     const users = await getManageableUsers();
 
     const creatableRoles: UserRole[] = profile.role === 'super_admin'
-        ? ['admin', 'staff']
-    : ['staff'];
+        ? ['admin', 'staff', 'view_only']
+        : ['staff', 'view_only'];
 
   return (
       <UsersClient

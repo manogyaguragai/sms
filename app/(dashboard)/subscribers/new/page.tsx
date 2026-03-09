@@ -1,7 +1,16 @@
 import { SubscriberForm } from '@/components/subscriber-form';
 import { UserPlus } from 'lucide-react';
+import { getCurrentUserProfile } from '@/lib/rbac';
+import { redirect } from 'next/navigation';
 
-export default function NewSubscriberPage() {
+export default async function NewSubscriberPage() {
+  const profile = await getCurrentUserProfile();
+
+  // view_only users cannot create subscribers
+  if (profile && profile.role === 'view_only') {
+    redirect('/subscribers');
+  }
+
   return (
     <div className="p-6 lg:p-8 space-y-6">
       {/* Header */}

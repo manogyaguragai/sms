@@ -33,7 +33,7 @@ export async function getActivityLogs(
   // First check if user has permission to view logs
   const role = await getCurrentUserRole();
   
-  if (!role || role === 'staff') {
+  if (!role || role === 'staff' || role === 'view_only') {
     // Staff cannot view logs
     return {
       logs: [],
@@ -157,7 +157,7 @@ export async function getActivityLogs(
 export async function getLogUsers(): Promise<{ id: string; full_name: string | null; role: string }[]> {
   const role = await getCurrentUserRole();
   
-  if (!role || role === 'staff') {
+  if (!role || role === 'staff' || role === 'view_only') {
     return [];
   }
 

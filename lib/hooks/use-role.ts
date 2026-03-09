@@ -15,11 +15,11 @@ interface UseRoleResult {
 
 // Client-side permission matrix (mirrors server-side)
 const PERMISSIONS = {
-  VIEW_SUBSCRIBERS: ['super_admin', 'admin', 'staff'] as UserRole[],
+  VIEW_SUBSCRIBERS: ['super_admin', 'admin', 'staff', 'view_only'] as UserRole[],
   CREATE_SUBSCRIBER: ['super_admin', 'admin', 'staff'] as UserRole[],
   UPDATE_SUBSCRIBER: ['super_admin', 'admin', 'staff'] as UserRole[],
   DELETE_SUBSCRIBER: ['super_admin', 'admin'] as UserRole[],
-  VIEW_PAYMENTS: ['super_admin', 'admin', 'staff'] as UserRole[],
+  VIEW_PAYMENTS: ['super_admin', 'admin', 'staff', 'view_only'] as UserRole[],
   CREATE_PAYMENT: ['super_admin', 'admin', 'staff'] as UserRole[],
   UPDATE_PAYMENT: ['super_admin', 'admin', 'staff'] as UserRole[],
   DELETE_PAYMENT: ['super_admin', 'admin'] as UserRole[],
@@ -41,6 +41,7 @@ const roleHierarchy: Record<UserRole, number> = {
   super_admin: 3,
   admin: 2,
   staff: 1,
+  view_only: 0,
 };
 
 // Import Profile type locally to keep backward compatibility
@@ -82,6 +83,7 @@ export function getRoleLabel(role: UserRole): string {
     super_admin: 'Super Admin',
     admin: 'Admin',
     staff: 'Staff',
+    view_only: 'View Only',
   };
   return labels[role] || role;
 }
@@ -94,6 +96,7 @@ export function getRoleBadgeColor(role: UserRole): string {
     super_admin: 'bg-purple-100 text-purple-700 border-purple-200',
     admin: 'bg-blue-100 text-blue-700 border-blue-200',
     staff: 'bg-gray-100 text-gray-700 border-gray-200',
+    view_only: 'bg-teal-100 text-teal-700 border-teal-200',
   };
   return colors[role] || 'bg-gray-100 text-gray-700 border-gray-200';
 }
