@@ -22,6 +22,7 @@ import {
   Activity,
   Shield,
   DollarSign,
+  TrendingDown,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 
@@ -35,6 +36,7 @@ interface NavItem {
 
 const allNavigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Churn Timeline', href: '/churn-timeline', icon: TrendingDown },
   // { name: 'Financials', href: '/financials', icon: DollarSign },
   { name: 'Subscribers', href: '/subscribers', icon: Users },
   { name: 'Add New', href: '/subscribers/new', icon: UserPlus, requiredRoles: ['super_admin', 'admin', 'staff'] },
