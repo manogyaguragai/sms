@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { getManageableUsers, createUser, deleteUser, updateUserRole } from '@/lib/rbac';
-import { logUserCreated, logUserDeleted } from '@/lib/activity-logger';
+import { getManageableUsers, createUser, deleteUser, updateUser } from '@/lib/rbac';
+import { logUserCreated, logUserDeleted, logUserUpdated } from '@/lib/activity-logger';
 import { getRoleLabel, getRoleBadgeColor } from '@/lib/hooks/use-role';
 import type { Profile, UserRole } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,6 +18,7 @@ import {
   Users,
   UserPlus,
   Trash2,
+  Pencil,
   Shield,
   Loader2,
   Mail,
@@ -25,15 +26,20 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+interface UserWithEmail extends Profile {
+  email: string;
+}
+
 interface UsersClientProps {
   profile: Profile;
   role: UserRole;
-  initialUsers: Profile[];
+  initialUsers: UserWithEmail[];
   creatableRoles: UserRole[];
+  isSuperAdmin: boolean;
 }
 
-export default function UsersClient({ profile, role, initialUsers, creatableRoles }: UsersClientProps) {
-  const [users, setUsers] = useState<Profile[]>(initialUsers);
+export default function UsersClient({ profile, role, initialUsers, creatableRoles, isSuperAdmin }: UsersClientProps) {
+  const [users, setUsers] = useState<UserWithEmail[]>(initialUsers);
   const [loading, setLoading] = useState(false);
   
   // Add user dialog
@@ -44,17 +50,28 @@ export default function UsersClient({ profile, role, initialUsers, creatableRole
   const [newUserRole, setNewUserRole] = useState<UserRole>('staff');
   const [creating, setCreating] = useState(false);
 
+  // Edit user dialog
+  const [editTarget, setEditTarget] = useState<UserWithEmail | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editRole, setEditRole] = useState<UserRole>('staff');
+  const [editing, setEditing] = useState(false);
+
   // Delete confirmation
-  const [deleteTarget, setDeleteTarget] = useState<Profile | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<UserWithEmail | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Fetch users (for refresh after create/delete)
+  // Fetch users (for refresh after create/delete/edit)
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     const data = await getManageableUsers();
-    setUsers(data);
+    // Preserve email info from initialUsers where possible
+    setUsers(data.map(u => ({
+      ...u,
+      email: (users.find(eu => eu.id === u.id)?.email) || '',
+    })));
     setLoading(false);
-  }, []);
+  }, [users]);
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,6 +136,75 @@ export default function UsersClient({ profile, role, initialUsers, creatableRole
     }
   };
 
+  const openEditDialog = (user: UserWithEmail) => {
+    setEditTarget(user);
+    setEditName(user.full_name || '');
+    setEditEmail(user.email || '');
+    setEditRole(user.role);
+  };
+
+  const handleEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editTarget) return;
+
+    setEditing(true);
+
+    try {
+      const changes: Record<string, unknown> = {};
+      const updateData: { fullName?: string; email?: string; role?: UserRole } = {};
+
+      if (editName !== (editTarget.full_name || '')) {
+        updateData.fullName = editName;
+        changes.full_name = { from: editTarget.full_name, to: editName };
+      }
+      if (editEmail !== (editTarget.email || '')) {
+        updateData.email = editEmail;
+        changes.email = { from: editTarget.email, to: editEmail };
+      }
+      if (editRole !== editTarget.role) {
+        updateData.role = editRole;
+        changes.role = { from: editTarget.role, to: editRole };
+      }
+
+      if (Object.keys(updateData).length === 0) {
+        toast.info('No changes to save');
+        setEditTarget(null);
+        setEditing(false);
+        return;
+      }
+
+      const result = await updateUser(editTarget.id, updateData);
+
+      if (result.success) {
+        toast.success('User updated successfully');
+        await logUserUpdated(
+          editTarget.id,
+          editName || editTarget.full_name || 'Unknown',
+          changes
+        );
+
+        // Update local state immediately
+        setUsers(prev => prev.map(u =>
+          u.id === editTarget.id
+            ? {
+              ...u,
+              full_name: editName || u.full_name,
+              email: editEmail || u.email,
+              role: editRole,
+            }
+            : u
+        ));
+        setEditTarget(null);
+      } else {
+        toast.error(result.error || 'Failed to update user');
+      }
+    } catch (error) {
+      toast.error('Failed to update user');
+    } finally {
+      setEditing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-6 lg:p-8 space-y-6">
@@ -140,6 +226,8 @@ export default function UsersClient({ profile, role, initialUsers, creatableRole
     });
   };
 
+  // Roles that a super admin can assign when editing
+  const editableRoles: UserRole[] = ['admin', 'staff', 'view_only'];
 
   return (
     <div className="p-6 lg:p-8 space-y-6">
@@ -195,18 +283,36 @@ export default function UsersClient({ profile, role, initialUsers, creatableRole
                       </Badge>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-gray-400 hover:text-red-600 hover:bg-red-50"
-                    onClick={() => setDeleteTarget(user)}
-                    disabled={user.id === profile?.id}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    {isSuperAdmin && user.id !== profile?.id && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                        onClick={() => openEditDialog(user)}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-gray-400 hover:text-red-600 hover:bg-red-50"
+                      onClick={() => setDeleteTarget(user)}
+                      disabled={user.id === profile?.id}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="mt-4 space-y-2 text-sm">
+                  {user.email && (
+                    <div className="flex items-center gap-2 text-gray-500">
+                      <Mail className="w-4 h-4" />
+                      {user.email}
+                    </div>
+                  )}
                   {user.phone && (
                     <div className="flex items-center gap-2 text-gray-500">
                       <Mail className="w-4 h-4" />
@@ -309,6 +415,83 @@ export default function UsersClient({ profile, role, initialUsers, creatableRole
                   </>
                 ) : (
                   'Create User'
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={!!editTarget} onOpenChange={(open) => { if (!open) setEditTarget(null); }}>
+        <DialogContent className="bg-white">
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>
+              Update the user&apos;s name, email, or role
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleEditUser} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="editName">Full Name</Label>
+              <Input
+                id="editName"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="John Doe"
+                className="bg-gray-50 border-gray-200"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="editEmail">Email</Label>
+              <Input
+                id="editEmail"
+                type="email"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                placeholder="user@example.com"
+                className="bg-gray-50 border-gray-200"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="editRole">Role</Label>
+              <Select value={editRole} onValueChange={(v) => setEditRole(v as UserRole)}>
+                <SelectTrigger className="bg-gray-50 border-gray-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {editableRoles.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {getRoleLabel(r)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditTarget(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={editing}
+              >
+                {editing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
                 )}
               </Button>
             </DialogFooter>

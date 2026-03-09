@@ -267,3 +267,20 @@ export async function logUserDeleted(
   });
 }
 
+/**
+ * Log user update
+ */
+export async function logUserUpdated(
+  userId: string,
+  userName: string,
+  changes: Record<string, unknown>
+): Promise<void> {
+  await logActivity({
+    actionType: 'USER_UPDATED',
+    description: `Updated user: ${userName}`,
+    targetTable: 'profiles',
+    targetId: userId,
+    metadata: { user_name: userName, changes },
+  });
+}
+
