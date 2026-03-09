@@ -14,6 +14,8 @@ import { sendTestEmailAction } from '@/app/actions/email';
 import { sendTestSMSAction } from '@/app/actions/sms';
 import { exportData } from '@/app/actions/export';
 import { getRoleLabel, getRoleBadgeColor } from '@/lib/hooks/use-role';
+import { NepaliDatePicker } from '@/components/ui/nepali-date-picker';
+import { toNepaliDateFilename } from '@/lib/nepali-date';
 import { Settings, User, Mail, Lock, Loader2, LogOut, Smartphone, Download, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Profile } from '@/lib/types';
@@ -46,6 +48,7 @@ export default function SettingsClient({ profile, permissions }: SettingsClientP
 
   // Export states
   const [exportType, setExportType] = useState<'subscribers' | 'payments' | 'both'>('subscribers');
+  const [exportScope, setExportScope] = useState<'allTime' | 'custom'>('allTime');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [exporting, setExporting] = useState(false);
@@ -167,15 +170,19 @@ export default function SettingsClient({ profile, permissions }: SettingsClientP
   };
 
   const handleExport = async () => {
-    // Validate dates if needed, though they are optional in our logic
-    if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+    const isAllTime = exportScope === 'allTime';
+    const exportStart = isAllTime ? '' : startDate;
+    const exportEnd = isAllTime ? '' : endDate;
+
+    // Validate dates for custom range
+    if (!isAllTime && exportStart && exportEnd && new Date(exportStart) > new Date(exportEnd)) {
       toast.error('Start date cannot be after end date');
       return;
     }
 
     setExporting(true);
     try {
-      const result = await exportData(exportType, startDate, endDate);
+      const result = await exportData(exportType, exportStart, exportEnd);
 
       if (!result.success) {
         toast.error(result.error || 'Failed to export data');
@@ -194,13 +201,16 @@ export default function SettingsClient({ profile, permissions }: SettingsClientP
         window.URL.revokeObjectURL(url);
       };
 
+      const nepaliToday = toNepaliDateFilename();
+      const fileSuffix = isAllTime ? `all_time_${nepaliToday}` : nepaliToday;
+
       if (result.subscribers) {
-        downloadFile(result.subscribers, `subscribers_${new Date().toISOString().split('T')[0]}.csv`);
+        downloadFile(result.subscribers, `subscribers_${fileSuffix}.csv`);
       }
       if (result.payments) {
         // Small delay to ensure browser handles double download nicely if needed
         setTimeout(() => {
-          downloadFile(result.payments!, `payments_${new Date().toISOString().split('T')[0]}.csv`);
+          downloadFile(result.payments!, `payments_${fileSuffix}.csv`);
         }, 100);
       }
 
@@ -528,28 +538,56 @@ export default function SettingsClient({ profile, permissions }: SettingsClientP
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="startDate">Start Date</Label>
-                      <Input
-                        id="startDate"
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        className="bg-gray-50 border-gray-200"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="endDate">End Date</Label>
-                      <Input
-                        id="endDate"
-                        type="date"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        className="bg-gray-50 border-gray-200"
-                      />
+                  <div className="space-y-2">
+                    <Label>Date Range</Label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="exportScope"
+                          value="allTime"
+                          checked={exportScope === 'allTime'}
+                          onChange={() => setExportScope('allTime')}
+                          className="text-blue-600 focus:ring-blue-600 border-gray-300"
+                        />
+                        All Time
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="exportScope"
+                          value="custom"
+                          checked={exportScope === 'custom'}
+                          onChange={() => setExportScope('custom')}
+                          className="text-blue-600 focus:ring-blue-600 border-gray-300"
+                        />
+                        Custom Date Range
+                      </label>
                     </div>
                   </div>
+
+                  {exportScope === 'custom' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Start Date</Label>
+                        <NepaliDatePicker
+                          value={startDate}
+                          onChange={setStartDate}
+                          placeholder="Select start date"
+                          className="bg-gray-50 border-gray-200"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>End Date</Label>
+                        <NepaliDatePicker
+                          value={endDate}
+                          onChange={setEndDate}
+                          placeholder="Select end date"
+                          className="bg-gray-50 border-gray-200"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <Button
                     onClick={handleExport}

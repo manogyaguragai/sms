@@ -157,3 +157,19 @@ export function formatNepaliDateTime(date: Date | string): string {
     return 'Invalid Date';
   }
 }
+
+/**
+ * Get a compact Nepali date string suitable for filenames (e.g., "2082-11-25")
+ */
+export function toNepaliDateFilename(date: Date = new Date()): string {
+  try {
+    const nepaliDate = new NepaliDate(date);
+    const year = nepaliDate.getYear();
+    const month = String(nepaliDate.getMonth() + 1).padStart(2, '0');
+    const day = String(nepaliDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  } catch (error) {
+    console.error('Error formatting Nepali date for filename:', error);
+    return date.toISOString().split('T')[0];
+  }
+}
