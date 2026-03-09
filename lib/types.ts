@@ -4,7 +4,7 @@
 // RBAC Types
 // =============================================
 
-export type UserRole = 'super_admin' | 'admin' | 'staff';
+export type UserRole = 'super_admin' | 'admin' | 'staff' | 'view_only';
 
 export interface Profile {
   id: string;

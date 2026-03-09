@@ -6,13 +6,13 @@ import type { UserRole } from '@/lib/types';
 
 export const PERMISSIONS = {
   // Subscriber operations
-  VIEW_SUBSCRIBERS: ['super_admin', 'admin', 'staff'] as UserRole[],
+  VIEW_SUBSCRIBERS: ['super_admin', 'admin', 'staff', 'view_only'] as UserRole[],
   CREATE_SUBSCRIBER: ['super_admin', 'admin', 'staff'] as UserRole[],
   UPDATE_SUBSCRIBER: ['super_admin', 'admin', 'staff'] as UserRole[],
   DELETE_SUBSCRIBER: ['super_admin', 'admin'] as UserRole[],
 
   // Payment operations
-  VIEW_PAYMENTS: ['super_admin', 'admin', 'staff'] as UserRole[],
+  VIEW_PAYMENTS: ['super_admin', 'admin', 'staff', 'view_only'] as UserRole[],
   CREATE_PAYMENT: ['super_admin', 'admin', 'staff'] as UserRole[],
   UPDATE_PAYMENT: ['super_admin', 'admin', 'staff'] as UserRole[],
   DELETE_PAYMENT: ['super_admin', 'admin'] as UserRole[],

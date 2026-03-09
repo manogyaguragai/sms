@@ -57,6 +57,7 @@ export async function hasMinRole(minRole: UserRole): Promise<boolean> {
     super_admin: 3,
     admin: 2,
     staff: 1,
+    view_only: 0,
   };
 
   return roleHierarchy[role] >= roleHierarchy[minRole];
@@ -112,14 +113,14 @@ export async function getUsers(): Promise<Profile[]> {
  */
 export async function getManageableUsers(): Promise<Profile[]> {
   const role = await getCurrentUserRole();
-  if (!role || role === 'staff') return [];
+  if (!role || role === 'staff' || role === 'view_only') return [];
 
   const supabase = await createClient();
   
   let query = supabase.from('profiles').select('*');
   
   if (role === 'admin') {
-    query = query.eq('role', 'staff');
+    query = query.in('role', ['staff', 'view_only']);
   }
 
   const { data, error } = await query.order('created_at', { ascending: false });
@@ -144,13 +145,13 @@ export async function createUser(
   const currentRole = await getCurrentUserRole();
   
   // Check permissions
-  if (!currentRole || currentRole === 'staff') {
+  if (!currentRole || currentRole === 'staff' || currentRole === 'view_only') {
     return { success: false, error: 'Unauthorized: Cannot create users' };
   }
 
-  // Admins can only create staff
-  if (currentRole === 'admin' && role !== 'staff') {
-    return { success: false, error: 'Admins can only create staff accounts' };
+  // Admins can only create staff and view_only
+  if (currentRole === 'admin' && role !== 'staff' && role !== 'view_only') {
+    return { success: false, error: 'Admins can only create staff and view-only accounts' };
   }
 
   // Super admins can create any role
@@ -232,6 +233,7 @@ export async function deleteUser(userId: string): Promise<{ success: boolean; er
     super_admin: 3,
     admin: 2,
     staff: 1,
+    view_only: 0,
   };
 
   if (roleHierarchy[currentRole] <= roleHierarchy[targetRole]) {

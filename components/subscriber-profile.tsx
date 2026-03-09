@@ -132,6 +132,8 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
   const router = useRouter();
   const { hasPermission } = useRole();
   const canDelete = hasPermission('DELETE_SUBSCRIBER');
+  const canCreatePayment = hasPermission('CREATE_PAYMENT');
+  const canEdit = hasPermission('UPDATE_SUBSCRIBER');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -271,22 +273,28 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
 
           {/* Actions row */}
           <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-            <Button
-              onClick={() => setShowPaymentModal(true)}
-              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white h-9 px-5 text-sm font-semibold shadow-md shadow-blue-600/25 transition-all hover:shadow-lg hover:shadow-blue-600/30"
-            >
-              <CreditCard className="w-4 h-4 mr-1.5" />
-              Record Payment
-            </Button>
+            {canCreatePayment && (
+              <Button
+                onClick={() => setShowPaymentModal(true)}
+                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white h-9 px-5 text-sm font-semibold shadow-md shadow-blue-600/25 transition-all hover:shadow-lg hover:shadow-blue-600/30"
+              >
+                <CreditCard className="w-4 h-4 mr-1.5" />
+                Record Payment
+              </Button>
+            )}
             <div className="flex items-center gap-1.5">
-              <Button variant="outline" onClick={() => setShowEditModal(true)} className="h-9 px-3 border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors">
-                <Edit className="w-3.5 h-3.5 sm:mr-1.5" />
-                <span className="hidden sm:inline">Edit</span>
-              </Button>
-              <Button variant="outline" onClick={handleToggleStatus} disabled={togglingStatus} className="h-9 px-3 border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors">
-                {togglingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin sm:mr-1.5" /> : <Power className="w-3.5 h-3.5 sm:mr-1.5" />}
-                <span className="hidden sm:inline">{subscriber.status === 'active' ? 'Deactivate' : 'Activate'}</span>
-              </Button>
+              {canEdit && (
+                <Button variant="outline" onClick={() => setShowEditModal(true)} className="h-9 px-3 border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors">
+                  <Edit className="w-3.5 h-3.5 sm:mr-1.5" />
+                  <span className="hidden sm:inline">Edit</span>
+                </Button>
+              )}
+              {canEdit && (
+                <Button variant="outline" onClick={handleToggleStatus} disabled={togglingStatus} className="h-9 px-3 border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors">
+                  {togglingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin sm:mr-1.5" /> : <Power className="w-3.5 h-3.5 sm:mr-1.5" />}
+                  <span className="hidden sm:inline">{subscriber.status === 'active' ? 'Deactivate' : 'Activate'}</span>
+                </Button>
+              )}
               <Button variant="outline" onClick={() => setShowStatementDialog(true)} className="h-9 px-3 border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors">
                 <Printer className="w-3.5 h-3.5 sm:mr-1.5" />
                 <span className="hidden sm:inline">Statement</span>
@@ -400,9 +408,11 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
                         <p className="text-lg font-semibold text-slate-300">Not started</p>
                         <p className="text-sm text-slate-400 mt-0.5">Record a payment to begin tracking</p>
                       </div>
-                      <Button variant="outline" size="sm" className="border-slate-200 text-slate-400 hover:text-slate-600" onClick={() => setShowDateDialog(true)}>
-                        <Settings className="w-3.5 h-3.5 mr-1.5" /> Set Date
-                      </Button>
+                      {canEdit && (
+                        <Button variant="outline" size="sm" className="border-slate-200 text-slate-400 hover:text-slate-600" onClick={() => setShowDateDialog(true)}>
+                          <Settings className="w-3.5 h-3.5 mr-1.5" /> Set Date
+                        </Button>
+                      )}
                     </div>
                   );
                 }
@@ -448,13 +458,15 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
                         <div>
                           <div className="flex items-center justify-between mb-5">
                             <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{freqLabel}</span>
-                            <button
-                              onClick={() => setShowDateDialog(true)}
-                              className="text-slate-300 hover:text-slate-500 transition-colors p-1.5 rounded-lg hover:bg-slate-50"
-                              title="Adjust date"
-                            >
-                              <Settings className="w-3.5 h-3.5" />
-                            </button>
+                            {canEdit && (
+                              <button
+                                onClick={() => setShowDateDialog(true)}
+                                className="text-slate-300 hover:text-slate-500 transition-colors p-1.5 rounded-lg hover:bg-slate-50"
+                                title="Adjust date"
+                              >
+                                <Settings className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
 
                           {/* Big number */}
@@ -516,9 +528,11 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
                       {daysRemaining <= 0 ? <span className="text-red-500">Expired</span> : `${daysRemaining} days left`}
                     </p>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => setShowDateDialog(true)}>
-                    <Settings className="w-3.5 h-3.5 mr-1.5" /> Adjust
-                  </Button>
+                  {canEdit && (
+                    <Button variant="outline" size="sm" onClick={() => setShowDateDialog(true)}>
+                      <Settings className="w-3.5 h-3.5 mr-1.5" /> Adjust
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

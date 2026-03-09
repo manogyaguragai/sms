@@ -37,7 +37,7 @@ const allNavigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   // { name: 'Financials', href: '/financials', icon: DollarSign },
   { name: 'Subscribers', href: '/subscribers', icon: Users },
-  { name: 'Add New', href: '/subscribers/new', icon: UserPlus },
+  { name: 'Add New', href: '/subscribers/new', icon: UserPlus, requiredRoles: ['super_admin', 'admin', 'staff'] },
   { name: 'Activity Logs', href: '/activity-logs', icon: Activity, requiredRoles: ['super_admin', 'admin'] },
   { name: 'Users', href: '/users', icon: Shield, requiredRoles: ['super_admin', 'admin'] },
   { name: 'Settings', href: '/settings', icon: Settings },
