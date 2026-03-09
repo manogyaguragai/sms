@@ -25,6 +25,7 @@ const PERMISSIONS = {
   DELETE_PAYMENT: ['super_admin', 'admin'] as UserRole[],
   VIEW_USERS: ['super_admin', 'admin'] as UserRole[],
   CREATE_USER: ['super_admin', 'admin'] as UserRole[],
+  EDIT_USER: ['super_admin'] as UserRole[],
   DELETE_USER: ['super_admin', 'admin'] as UserRole[],
   VIEW_ALL_LOGS: ['super_admin'] as UserRole[],
   VIEW_STAFF_LOGS: ['super_admin', 'admin'] as UserRole[],

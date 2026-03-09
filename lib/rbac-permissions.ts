@@ -20,6 +20,7 @@ export const PERMISSIONS = {
   // User management
   VIEW_USERS: ['super_admin', 'admin'] as UserRole[],
   CREATE_USER: ['super_admin', 'admin'] as UserRole[],
+  EDIT_USER: ['super_admin'] as UserRole[],
   DELETE_USER: ['super_admin', 'admin'] as UserRole[],
 
   // Activity logs

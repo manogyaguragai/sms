@@ -251,26 +251,89 @@ export async function deleteUser(userId: string): Promise<{ success: boolean; er
 }
 
 /**
+ * Update a user's profile (super_admin only)
+ * Can update: full_name, email, role
+ */
+export async function updateUser(
+  userId: string,
+  data: { fullName?: string; email?: string; role?: UserRole }
+): Promise<{ success: boolean; error?: string }> {
+  await requireRole('super_admin');
+
+  const currentProfile = await getCurrentUserProfile();
+  if (!currentProfile) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  // Cannot edit yourself
+  if (currentProfile.id === userId) {
+    return { success: false, error: 'Cannot edit your own account from here' };
+  }
+
+  const adminSupabase = createAdminClient();
+
+  // Get target user's current role to enforce hierarchy
+  const { data: targetProfile } = await adminSupabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .single();
+
+  if (!targetProfile) {
+    return { success: false, error: 'User not found' };
+  }
+
+  const targetRole = targetProfile.role as UserRole;
+  const roleHierarchy: Record<UserRole, number> = {
+    super_admin: 3,
+    admin: 2,
+    staff: 1,
+    view_only: 0,
+  };
+
+  if (roleHierarchy[currentProfile.role] <= roleHierarchy[targetRole]) {
+    return { success: false, error: 'Cannot edit user with equal or higher role' };
+  }
+
+  try {
+    // Update profile fields (full_name, role)
+    const profileUpdates: Record<string, unknown> = {};
+    if (data.fullName !== undefined) profileUpdates.full_name = data.fullName || null;
+    if (data.role !== undefined) profileUpdates.role = data.role;
+
+    if (Object.keys(profileUpdates).length > 0) {
+      const { error: profileError } = await adminSupabase
+        .from('profiles')
+        .update(profileUpdates)
+        .eq('id', userId);
+
+      if (profileError) throw profileError;
+    }
+
+    // Update email via Supabase Auth admin API
+    if (data.email) {
+      const { error: authError } = await adminSupabase.auth.admin.updateUserById(userId, {
+        email: data.email,
+      });
+
+      if (authError) throw authError;
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('updateUser error:', error);
+    return { success: false, error: error.message || 'Failed to update user' };
+  }
+}
+
+/**
  * Update a user's role (super_admin only)
+ * @deprecated Use updateUser instead
  */
 export async function updateUserRole(
   userId: string,
   newRole: UserRole
 ): Promise<{ success: boolean; error?: string }> {
-  await requireRole('super_admin');
-
-  const adminSupabase = createAdminClient();
-
-  try {
-    const { error } = await adminSupabase
-      .from('profiles')
-      .update({ role: newRole })
-      .eq('id', userId);
-
-    if (error) throw error;
-
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
+  return updateUser(userId, { role: newRole });
 }
+
