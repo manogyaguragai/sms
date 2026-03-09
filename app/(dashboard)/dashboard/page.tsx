@@ -124,7 +124,7 @@ async function getDashboardData() {
       })),
     plans: [
       { name: 'Monthly', value: planCounts.monthly },
-      { name: 'Yearly', value: planCounts.yearly },
+      { name: 'Annual', value: planCounts.yearly },
       { name: '12 Hajar', value: planCounts.twelveHajar },
     ].filter(i => i.value > 0)
   };
