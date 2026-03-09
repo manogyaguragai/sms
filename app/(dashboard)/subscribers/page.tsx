@@ -1,6 +1,7 @@
 import { getSubscribersPaginated, type SortColumn, type SortOrder } from '@/app/actions/subscribers';
 import { SubscriberTable } from '@/components/subscriber-table';
 import { SubscriberListPrintButton } from '@/components/subscriber-list-print-button';
+import { hasPermission } from '@/lib/rbac';
 import { Button } from '@/components/ui/button';
 import { UserPlus, Users } from 'lucide-react';
 import Link from 'next/link';
@@ -30,16 +31,19 @@ export default async function SubscribersPage({ searchParams }: PageProps) {
   const sortBy = (params.sortBy as SortColumn) || 'subscription_end_date';
   const sortOrder = (params.sortOrder as SortOrder) || 'asc';
 
-  const result = await getSubscribersPaginated({
-    page,
-    pageSize,
-    search,
-    status,
-    frequency,
-    noPayments,
-    sortBy,
-    sortOrder,
-  });
+  const [result, canCreate] = await Promise.all([
+    getSubscribersPaginated({
+      page,
+      pageSize,
+      search,
+      status,
+      frequency,
+      noPayments,
+      sortBy,
+      sortOrder,
+    }),
+    hasPermission('CREATE_SUBSCRIBER'),
+  ]);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6">
@@ -56,12 +60,14 @@ export default async function SubscribersPage({ searchParams }: PageProps) {
         </div>
         <div className="flex items-center gap-2">
           <SubscriberListPrintButton />
-          <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white">
-            <Link href="/subscribers/new">
-              <UserPlus className="w-4 h-4 mr-2" />
-              Add Subscriber
-            </Link>
-          </Button>
+          {canCreate && (
+            <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Link href="/subscribers/new">
+                <UserPlus className="w-4 h-4 mr-2" />
+                Add Subscriber
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 
