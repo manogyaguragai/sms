@@ -29,7 +29,7 @@ const STATUS_OPTIONS = [
 
 const FREQUENCY_OPTIONS = [
   { value: 'monthly', label: 'Monthly', color: 'border-blue-200 text-blue-700 bg-blue-50' },
-  { value: 'annually', label: 'Annually', color: 'border-green-200 text-green-700 bg-green-50' },
+  { value: 'annual', label: 'Annual', color: 'border-green-200 text-green-700 bg-green-50' },
   { value: '12_hajar', label: '12 Hajar', color: 'border-purple-200 text-purple-700 bg-purple-50' },
 ];
 
@@ -42,7 +42,8 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['active', 'inactive']);
-  const [selectedFrequencies, setSelectedFrequencies] = useState<string[]>(['monthly', 'annually', '12_hajar']);
+  const [selectedFrequencies, setSelectedFrequencies] = useState<string[]>(['monthly', 'annual', '12_hajar']);
+  const [showAllFrequencies, setShowAllFrequencies] = useState(true);
 
   const fetchData = async () => {
     setLoading(true);
@@ -70,7 +71,8 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
     setAllSubscribers([]);
     setSearchQuery('');
     setSelectedStatuses(['active', 'inactive']);
-    setSelectedFrequencies(['monthly', 'annually', '12_hajar']);
+    setSelectedFrequencies(['monthly', 'annual', '12_hajar']);
+    setShowAllFrequencies(true);
     onClose();
   };
 
@@ -80,10 +82,13 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
       // Status filter
       if (!selectedStatuses.includes(sub.status)) return false;
 
-      // Frequency filter
-      const subFreqs = Array.isArray(sub.frequency) ? sub.frequency : [sub.frequency];
-      const hasMatchingFreq = subFreqs.some(f => selectedFrequencies.includes(f));
-      if (!hasMatchingFreq) return false;
+      // Frequency filter - skip when showing all, otherwise exact set match
+      if (!showAllFrequencies) {
+        const subFreqs = Array.isArray(sub.frequency) ? sub.frequency : [sub.frequency];
+        const exactMatch = subFreqs.length === selectedFrequencies.length &&
+          subFreqs.every(f => selectedFrequencies.includes(f));
+        if (!exactMatch) return false;
+      }
 
       // Search filter
       if (searchQuery.trim()) {
@@ -95,7 +100,7 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
 
       return true;
     });
-  }, [allSubscribers, selectedStatuses, selectedFrequencies, searchQuery]);
+  }, [allSubscribers, selectedStatuses, selectedFrequencies, showAllFrequencies, searchQuery]);
 
   const toggleStatus = (status: string) => {
     setSelectedStatuses(prev =>
@@ -104,6 +109,7 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
   };
 
   const toggleFrequency = (freq: string) => {
+    setShowAllFrequencies(false);
     setSelectedFrequencies(prev =>
       prev.includes(freq) ? prev.filter(f => f !== freq) : [...prev, freq]
     );
@@ -133,7 +139,7 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
         <td>${sub.phone || '—'}</td>
         <td><span class="badge badge-${sub.status}">${sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}</span></td>
         <td>${(Array.isArray(sub.frequency) ? sub.frequency : [sub.frequency]).map((f: string) => `<span class="badge badge-${f}">${f === '12_hajar' ? '12 Hajar' : f.charAt(0).toUpperCase() + f.slice(1)}</span>`).join(' ')}</td>
-        <td>Rs. ${Number(sub.monthly_rate).toLocaleString()}</td>
+
         <td class="text-center">${sub.payment_count}</td>
         <td class="text-right" style="font-weight:500">Rs. ${sub.total_paid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
         <td>${sub.last_payment_date ? formatNepaliDate(sub.last_payment_date, 'short') : '—'}</td>
@@ -210,7 +216,6 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
           }
           .badge-monthly { background: #dbeafe; color: #1e40af; }
           .badge-annual { background: #dcfce7; color: #166534; }
-          .badge-annually { background: #dcfce7; color: #166534; }
           .badge-12_hajar { background: #f3e8ff; color: #6b21a8; }
           .badge-active { background: #dcfce7; color: #166534; }
           .badge-inactive, .badge-expired, .badge-cancelled { background: #fee2e2; color: #991b1b; }
@@ -251,7 +256,7 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
               <th>Phone</th>
               <th>Status</th>
               <th>Type</th>
-              <th>Rate</th>
+
               <th>Payments</th>
               <th class="text-right">Total Paid</th>
               <th>Last Payment</th>
@@ -261,7 +266,7 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
           <tbody>
             ${rows}
             <tr class="total-row">
-              <td colspan="7" style="text-align:right">Grand Total</td>
+              <td colspan="6" style="text-align:right">Grand Total</td>
               <td class="text-right">Rs. ${grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
               <td></td>
               <td></td>
@@ -363,11 +368,26 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
                   Subscription Type:
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <div className="flex items-center space-x-1.5">
+                    <Checkbox
+                      id="freq-all"
+                      checked={showAllFrequencies}
+                      onCheckedChange={() => {
+                        setShowAllFrequencies(true);
+                        setSelectedFrequencies(['monthly', 'annual', '12_hajar']);
+                      }}
+                    />
+                    <label htmlFor="freq-all" className="cursor-pointer select-none">
+                      <Badge variant="outline" className={`text-xs px-2 py-0.5 ${showAllFrequencies ? 'border-gray-400 text-gray-800 bg-gray-100' : 'border-gray-200 text-gray-500 bg-white'}`}>
+                        All
+                      </Badge>
+                    </label>
+                  </div>
                   {FREQUENCY_OPTIONS.map(opt => (
                     <div key={opt.value} className="flex items-center space-x-1.5">
                       <Checkbox
                         id={`freq-${opt.value}`}
-                        checked={selectedFrequencies.includes(opt.value)}
+                        checked={!showAllFrequencies && selectedFrequencies.includes(opt.value)}
                         onCheckedChange={() => toggleFrequency(opt.value)}
                       />
                       <label htmlFor={`freq-${opt.value}`} className="cursor-pointer select-none">
@@ -389,12 +409,13 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
                 ({activeCount} active)
               </span>
               {(selectedStatuses.length < STATUS_OPTIONS.length ||
-                selectedFrequencies.length < FREQUENCY_OPTIONS.length ||
+                !showAllFrequencies ||
                 searchQuery.trim()) && (
                   <button
                     onClick={() => {
                       setSelectedStatuses(['active', 'inactive']);
-                      setSelectedFrequencies(['monthly', 'annually', '12_hajar']);
+                      setSelectedFrequencies(['monthly', 'annual', '12_hajar']);
+                      setShowAllFrequencies(true);
                       setSearchQuery('');
                     }}
                     className="text-blue-600 hover:text-blue-700 font-medium"
@@ -431,7 +452,7 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
                               <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">Phone</th>
                               <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">Status</th>
                               <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">Type</th>
-                              <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">Rate</th>
+
                               <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider">Payments</th>
                               <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider">Total Paid</th>
                               <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">Last Payment</th>
@@ -462,7 +483,7 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
                                         key={f}
                                         variant="outline"
                                         className={`text-[10px] px-1.5 py-0 ${f === 'monthly' ? 'border-blue-200 text-blue-700 bg-blue-50' :
-                                          f === 'annually' ? 'border-green-200 text-green-700 bg-green-50' :
+                                          f === 'annual' ? 'border-green-200 text-green-700 bg-green-50' :
                                             f === '12_hajar' ? 'border-purple-200 text-purple-700 bg-purple-50' :
                                               'border-gray-200 text-gray-600 bg-gray-50'
                                           }`}
@@ -472,7 +493,7 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
                                     ))}
                                   </div>
                                 </td>
-                                <td className="px-3 py-2 text-gray-600">Rs. {Number(sub.monthly_rate).toLocaleString()}</td>
+
                                 <td className="px-3 py-2 text-center text-gray-600">{sub.payment_count}</td>
                                 <td className="px-3 py-2 text-right font-medium text-gray-900">
                                   Rs. {sub.total_paid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -487,7 +508,7 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
                             ))}
                             {/* Grand Total Row */}
                             <tr className="bg-blue-50 border-t-2 border-gray-900">
-                              <td colSpan={7} className="px-3 py-2.5 text-right font-bold text-gray-900">Grand Total</td>
+                              <td colSpan={6} className="px-3 py-2.5 text-right font-bold text-gray-900">Grand Total</td>
                               <td className="px-3 py-2.5 text-right font-bold text-gray-900">
                                 Rs. {grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                               </td>
