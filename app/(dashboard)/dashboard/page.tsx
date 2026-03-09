@@ -4,11 +4,206 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, AlertTriangle, Receipt, ArrowRight } from 'lucide-react';
 import { addDays } from 'date-fns';
 import Link from 'next/link';
-import type { Subscriber, PaymentWithSubscriber } from '@/lib/types';
+import NepaliDate from 'nepali-date-converter';
+import type { Subscriber } from '@/lib/types';
 import { DashboardCharts } from '@/components/dashboard-charts';
 import { ExpiringSubscribersList } from '@/components/expiring-subscribers-list';
 import { TopSubscribersCard } from '@/components/top-subscribers-card';
+import { NEPALI_MONTHS, NEPALI_MONTHS_SHORT } from '@/lib/nepali-date';
 import { formatNepaliDate } from '@/lib/nepali-date';
+import type { CollectionRateMonthData, CollectionPaymentRecord } from '@/components/collection-rate-chart';
+
+/**
+ * Given a Nepali year and month (0-indexed), return the JS Date range [start, end)
+ * where start = 1st of that Nepali month and end = 1st of the next Nepali month.
+ */
+function getNepaliMonthRange(year: number, month: number): { start: Date; end: Date } {
+  const start = new NepaliDate(year, month, 1).toJsDate();
+
+  let nextMonth = month + 1;
+  let nextYear = year;
+  if (nextMonth > 11) {
+    nextMonth = 0;
+    nextYear += 1;
+  }
+  const end = new NepaliDate(nextYear, nextMonth, 1).toJsDate();
+
+  return { start, end };
+}
+
+/**
+ * Expected revenue per subscriber per interval:
+ *   monthly = Rs. 500 per month
+ *   annual  = Rs. 6,000 per year
+ *   12_hajar = Rs. 12,000 per year
+ */
+const EXPECTED_RATE: Record<string, number> = {
+  monthly: 500,
+  annual: 6000,
+  '12_hajar': 12000,
+};
+
+/** Frequencies that renew yearly — chart shows year-level intervals. */
+const YEARLY_FREQUENCIES = new Set(['annual', '12_hajar']);
+
+/**
+ * Normalize frequency keys. payments.payment_for may use 'annually'
+ * while subscribers.frequency uses 'annual'.
+ */
+function normalizeFreq(f: string): string {
+  if (f === 'annually') return 'annual';
+  return f;
+}
+
+/**
+ * Return the JS Date range [start, end) spanning an entire Nepali year
+ * (Baisakh 1 of `year` to Baisakh 1 of `year+1`).
+ */
+function getNepaliYearRange(year: number): { start: Date; end: Date } {
+  const start = new NepaliDate(year, 0, 1).toJsDate(); // Baisakh 1
+  const end = new NepaliDate(year + 1, 0, 1).toJsDate();
+  return { start, end };
+}
+
+/**
+ * Compute Payment Collection Rate data per frequency type.
+ *
+ * - **monthly**: last 6 completed Nepali months + current month (7 intervals).
+ * - **annual / 12_hajar**: last 3 completed Nepali years + current year (4 intervals).
+ *
+ * For each interval:
+ *   1. Count subscribers of that frequency who existed before interval end → expected.
+ *   2. Sum matching payments whose payment_date falls within the interval → collected.
+ *   3. rate = (collected / expected) × 100.
+ *   4. Individual payment records included for the detail modal.
+ */
+function computeCollectionRateData(
+  allSubscribers: {
+    id: string;
+    full_name: string;
+    status: string;
+    frequency: string[];
+    created_at: string;
+  }[],
+  allPayments: {
+    subscriber_id: string;
+    amount_paid: number;
+    payment_for: string | null;
+    payment_date: string | null;
+  }[]
+): Record<string, CollectionRateMonthData[]> {
+  const now = new Date();
+  const currentNepali = new NepaliDate(now);
+  const currentYear = currentNepali.getYear();
+  const currentMonth = currentNepali.getMonth(); // 0-indexed
+
+  const frequencyTypes = ['monthly', 'annual', '12_hajar'];
+  const result: Record<string, CollectionRateMonthData[]> = {};
+
+  // Build subscriber name map
+  const subscriberNameById = new Map<string, string>();
+  for (const sub of allSubscribers) {
+    subscriberNameById.set(sub.id, sub.full_name);
+  }
+
+  // Build subscriber lookup for frequency inference when payment_for is null
+  const subscriberFreqById = new Map<string, string[]>();
+  for (const sub of allSubscribers) {
+    subscriberFreqById.set(
+      sub.id,
+      (Array.isArray(sub.frequency) ? sub.frequency : [sub.frequency]).map(normalizeFreq)
+    );
+  }
+
+  // Precompute subscriber counts per frequency (current active base)
+  const subscriberCountByFreq = new Map<string, number>();
+  for (const freq of frequencyTypes) {
+    let count = 0;
+    for (const sub of allSubscribers) {
+      const freqs = (Array.isArray(sub.frequency) ? sub.frequency : [sub.frequency]).map(normalizeFreq);
+      if (freqs.includes(freq)) count++;
+    }
+    subscriberCountByFreq.set(freq, count);
+  }
+
+  /** Shared logic for a single interval. */
+  function computeInterval(
+    freq: string,
+    label: string,
+    rangeStart: Date,
+    rangeEnd: Date
+  ): CollectionRateMonthData {
+    const subCount = subscriberCountByFreq.get(freq) || 0;
+    const expected = subCount * (EXPECTED_RATE[freq] || 0);
+
+    // Sum payments in this range for this frequency
+    let collected = 0;
+    const payments: CollectionPaymentRecord[] = [];
+
+    for (const p of allPayments) {
+      if (!p.payment_date) continue;
+      const pDate = new Date(p.payment_date);
+      if (pDate < rangeStart || pDate >= rangeEnd) continue;
+
+      let pFreqs: string[];
+      if (p.payment_for) {
+        pFreqs = [normalizeFreq(p.payment_for)];
+      } else {
+        pFreqs = subscriberFreqById.get(p.subscriber_id) || [];
+      }
+      if (!pFreqs.includes(freq)) continue;
+
+      const amount = Number(p.amount_paid);
+      collected += amount;
+      payments.push({
+        subscriberName: subscriberNameById.get(p.subscriber_id) || 'Unknown',
+        amount,
+        paymentDate: formatNepaliDate(pDate, 'long'),
+      });
+    }
+
+    const rate = expected > 0 ? Math.round((collected / expected) * 100) : 0;
+
+    return {
+      month: label,
+      expected,
+      collected,
+      rate,
+      subscriberCount: subCount,
+      payments,
+    };
+  }
+
+  for (const freq of frequencyTypes) {
+    const intervals: CollectionRateMonthData[] = [];
+
+    if (YEARLY_FREQUENCIES.has(freq)) {
+      // Yearly intervals: last 3 completed years + current year
+      for (let i = 3; i >= 0; i--) {
+        const targetYear = currentYear - i;
+        const { start, end } = getNepaliYearRange(targetYear);
+        intervals.push(computeInterval(freq, `${targetYear}`, start, end));
+      }
+    } else {
+      // Monthly intervals: last 6 completed months + current month
+      for (let i = 6; i >= 0; i--) {
+        let targetMonth = currentMonth - i;
+        let targetYear = currentYear;
+        while (targetMonth < 0) {
+          targetMonth += 12;
+          targetYear -= 1;
+        }
+        const { start, end } = getNepaliMonthRange(targetYear, targetMonth);
+        const label = `${NEPALI_MONTHS_SHORT[targetMonth]} ${targetYear}`;
+        intervals.push(computeInterval(freq, label, start, end));
+      }
+    }
+
+    result[freq] = intervals;
+  }
+
+  return result;
+}
 
 async function getDashboardData() {
   const supabase = await createClient();
@@ -17,12 +212,12 @@ async function getDashboardData() {
 
   // Run all independent queries in parallel for maximum speed
   const [
-    { data: subscribers },
+    { data: activeSubscribers },
     { count: totalAllSubscribers },
     { data: expiringSoon },
     { data: allPayments },
-    { data: recentPayments },
-    { data: allSubscribers },
+    { data: allSubscribersForNames },
+    { data: allSubscribersForRetention },
   ] = await Promise.all([
     // Get all active subscribers
     supabase
@@ -41,20 +236,18 @@ async function getDashboardData() {
       .lte('subscription_end_date', tenDaysFromNow)
       .gte('subscription_end_date', now)
       .order('subscription_end_date', { ascending: true }),
-    // Get all payments for analytics
+    // Get all payments (for revenue + collection rate analytics)
     supabase
       .from('payments')
-      .select('amount_paid, subscriber_id, payment_date'),
-    // Get recent payments with subscriber info for chart
-    supabase
-      .from('payments')
-      .select('*, subscribers(id, full_name, email)')
-      .order('payment_date', { ascending: false })
-      .limit(10),
+      .select('amount_paid, subscriber_id, payment_date, payment_for'),
     // Get all subscriber names (for top subscribers)
     supabase
       .from('subscribers')
       .select('id, full_name'),
+    // Get ALL subscribers (all statuses) for collection rate chart
+    supabase
+      .from('subscribers')
+      .select('id, full_name, status, frequency, created_at'),
   ]);
 
   // Calculate total revenue
@@ -76,7 +269,7 @@ async function getDashboardData() {
   });
 
   const subscriberNames = new Map<string, string>();
-  (allSubscribers || []).forEach(s => {
+  (allSubscribersForNames || []).forEach(s => {
     subscriberNames.set(s.id, s.full_name);
   });
 
@@ -91,8 +284,8 @@ async function getDashboardData() {
 
   // Plan distribution for chart
   const planCounts = { monthly: 0, yearly: 0, twelveHajar: 0 };
-  if (subscribers) {
-    subscribers.forEach((sub: Subscriber) => {
+  if (activeSubscribers) {
+    activeSubscribers.forEach((sub: Subscriber) => {
       const freqs = Array.isArray(sub.frequency) ? sub.frequency : [sub.frequency];
       for (const freq of freqs) {
         if (freq === 'monthly') {
@@ -106,22 +299,7 @@ async function getDashboardData() {
     });
   }
 
-  // Aggregate payments by day for chart (using Nepali dates)
-  const paymentsByDay = new Map<string, number>();
-  (recentPayments || []).forEach(p => {
-    const dateKey = formatNepaliDate(new Date(p.payment_date), 'short');
-    paymentsByDay.set(dateKey, (paymentsByDay.get(dateKey) || 0) + Number(p.amount_paid));
-  });
-
   const chartData = {
-    payments: Array.from(paymentsByDay.entries())
-      .slice(0, 7)
-      .reverse()
-      .map(([date, amount]) => ({
-        date,
-        amount,
-        name: 'Daily Total'
-      })),
     plans: [
       { name: 'Monthly', value: planCounts.monthly },
       { name: 'Annual', value: planCounts.yearly },
@@ -129,19 +307,36 @@ async function getDashboardData() {
     ].filter(i => i.value > 0)
   };
 
+  // Compute collection rate data per frequency type
+  const collectionRateData = computeCollectionRateData(
+    (allSubscribersForRetention || []).map(s => ({
+      id: s.id,
+      full_name: s.full_name,
+      status: s.status,
+      frequency: Array.isArray(s.frequency) ? s.frequency : [s.frequency],
+      created_at: s.created_at,
+    })),
+    (allPayments || []).map(p => ({
+      subscriber_id: p.subscriber_id,
+      amount_paid: Number(p.amount_paid),
+      payment_for: p.payment_for,
+      payment_date: p.payment_date,
+    }))
+  );
+
   return {
-    totalSubscribers: subscribers?.length || 0,
+    totalSubscribers: activeSubscribers?.length || 0,
     totalAllSubscribers: totalAllSubscribers || 0,
     expiringSoon: (expiringSoon || []) as Subscriber[],
-    recentPayments: (recentPayments || []) as PaymentWithSubscriber[],
     chartData,
     totalRevenue,
     topSubscribers,
+    collectionRateData,
   };
 }
 
 export default async function DashboardPage() {
-  const { totalSubscribers, totalAllSubscribers, expiringSoon, chartData, totalRevenue, topSubscribers } = await getDashboardData();
+  const { totalSubscribers, totalAllSubscribers, expiringSoon, chartData, totalRevenue, topSubscribers, collectionRateData } = await getDashboardData();
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6">
@@ -171,7 +366,7 @@ export default async function DashboardPage() {
         />
         <StatsCard
           title="Total Revenue"
-          value={`Rs. ${totalRevenue.toLocaleString()}`}
+          value={`Rs. ${totalRevenue.toLocaleString('en-IN')}`}
           subtitle="All-time collections"
           icon={Receipt}
           href="/subscribers"
@@ -180,7 +375,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Charts */}
-      <DashboardCharts paymentData={chartData.payments} planData={chartData.plans} />
+      <DashboardCharts collectionRateData={collectionRateData} planData={chartData.plans} />
 
       {/* Expiring Soon List */}
       <Card className="bg-white border-gray-200 shadow-sm">
