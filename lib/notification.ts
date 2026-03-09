@@ -52,12 +52,20 @@ export async function sendAdminReminderSMS({ subscribers }: AdminReminderSMSProp
     return { success: true, message: 'No subscribers to notify about' };
   }
 
-  // Format subscriber info for SMS (keeping it concise for SMS)
+  // Format subscriber info for SMS with clean line-by-line layout
   const subscriberList = subscribers
-    .map(sub => `${sub.name} (${freqLabel(sub.frequency)}): ${sub.daysUntilExpiry}d left`)
-    .join(', ');
+    .map((sub, i) => `${i + 1}. ${sub.name}\n   ${freqLabel(sub.frequency)} · ${sub.daysUntilExpiry}d left`)
+    .join('\n');
 
-  const message = `📋 SubTrack Alert: ${subscribers.length} subscription${subscribers.length === 1 ? '' : 's'} expiring soon. ${subscriberList}. Check your email for details.`;
+  const message = [
+    `📋 SubTrack Reminder`,
+    `━━━━━━━━━━━━━━━━━━`,
+    `${subscribers.length} subscription${subscribers.length === 1 ? '' : 's'} expiring soon`,
+    ``,
+    subscriberList,
+    ``,
+    `Check email for details.`,
+  ].join('\n');
 
   try {
     const result = await notificationapi.send({
@@ -138,12 +146,20 @@ export async function sendInactiveSubscriberSMS({ subscribers }: InactiveSubscri
     return { success: true, message: 'No subscribers to notify about' };
   }
 
-  // Format subscriber info for SMS (keeping it concise for SMS)
+  // Format subscriber info for SMS with clean line-by-line layout
   const subscriberList = subscribers
-    .map(sub => `${sub.name} (${freqLabel(sub.frequency)}): ${sub.daysOverdue}d overdue`)
-    .join(', ');
+    .map((sub, i) => `${i + 1}. ${sub.name}\n   ${freqLabel(sub.frequency)} · ${sub.daysOverdue}d overdue`)
+    .join('\n');
 
-  const message = `🚫 SubTrack Alert: ${subscribers.length} subscriber${subscribers.length === 1 ? '' : 's'} marked INACTIVE due to non-payment. ${subscriberList}. Check email for details.`;
+  const message = [
+    `🚫 SubTrack Alert`,
+    `━━━━━━━━━━━━━━━━━━`,
+    `${subscribers.length} subscriber${subscribers.length === 1 ? '' : 's'} marked INACTIVE`,
+    ``,
+    subscriberList,
+    ``,
+    `Check email for details.`,
+  ].join('\n');
 
   try {
     const result = await notificationapi.send({
