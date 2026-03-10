@@ -353,17 +353,17 @@ export function IdCardModal({ subscriber, open, onClose }: IdCardModalProps) {
 function TempleWatermark() {
   return (
     <img
-      src="/temple-bg.png"
+      src="/trigajur_drawing.png"
       alt=""
       style={{
         position: 'absolute',
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        width: '65%',
-        height: '85%',
+        width: '80%',
+        height: '90%',
         objectFit: 'contain',
-        opacity: 0.4,
+        opacity: 0.35,
         pointerEvents: 'none',
       }}
     />
@@ -511,9 +511,9 @@ function IdCardBack({ subscriber, profileUrl, forPrint, nepaliName, nepaliPhone 
               fontWeight: 900,
               color: '#F57C00',
               lineHeight: 1.15,
-            }}>ॐ आदि फाउन्डेशन</span>
+            }}>ॐ आदि फाउन्डेसन</span>
             <span style={{
-              fontSize: forPrint ? '12px' : '13px',
+              fontSize: forPrint ? '12px' : '15px',
               fontWeight: 800,
               color: '#1565C0',
               letterSpacing: '0.02em',
