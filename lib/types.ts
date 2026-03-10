@@ -62,6 +62,7 @@ export const ACTION_CATEGORIES = {
 
 export interface Subscriber {
   id: string;
+  master_id: string;
   full_name: string;
   email: string | null;
   phone: string | null;

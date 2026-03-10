@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import type { Subscriber } from '@/lib/types';
 
-export type SortColumn = 'full_name' | 'subscription_end_date';
+export type SortColumn = 'full_name' | 'subscription_end_date' | 'master_id';
 export type SortOrder = 'asc' | 'desc';
 
 export interface PaginatedSubscribersParams {
@@ -94,12 +94,12 @@ export async function getSubscribersPaginated(
     ];
 
     if (receiptSubscriberIds.length > 0) {
-      // Search across name, email, phone, OR matching receipt subscriber IDs
+      // Search across name, email, phone, master_id, OR matching receipt subscriber IDs
       query = query.or(
-        `full_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%,id.in.(${receiptSubscriberIds.join(',')})`
+        `full_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%,master_id.ilike.%${search}%,id.in.(${receiptSubscriberIds.join(',')})`
       );
     } else {
-      query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`);
+      query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%,master_id.ilike.%${search}%`);
     }
   }
 
