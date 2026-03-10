@@ -452,6 +452,29 @@ function IdCardFront({ subscriber, profileUrl, forPrint }: {
           <QRWithLogo url={profileUrl} size={forPrint ? 110 : 120} />
         </div>
       </div>
+
+      {/* Foundation Contact Info */}
+      <div style={{
+        borderTop: '1px solid #e2e8f0',
+        paddingTop: '6px',
+        marginTop: '10px',
+        display: 'flex',
+        flexWrap: 'wrap' as const,
+        justifyContent: 'center',
+        gap: forPrint ? '6px 12px' : '4px 14px',
+        position: 'relative' as const,
+        zIndex: 1,
+      }}>
+        <span style={{ fontSize: forPrint ? '9px' : '10px', color: '#475569', fontWeight: 600 }}>
+          Phone: 014114885
+        </span>
+        <span style={{ fontSize: forPrint ? '9px' : '10px', color: '#475569', fontWeight: 600 }}>
+          WhatsApp: 9851313480 / 9851355002
+        </span>
+        <span style={{ fontSize: forPrint ? '9px' : '10px', color: '#475569', fontWeight: 600 }}>
+          Email: trigajur2076@gmail.com
+        </span>
+      </div>
     </div>
   );
 }
@@ -537,6 +560,29 @@ function IdCardBack({ subscriber, profileUrl, forPrint, nepaliName, nepaliPhone 
         <div style={{ flexShrink: 0, marginLeft: '12px' }}>
           <QRWithLogo url={profileUrl} size={forPrint ? 110 : 120} />
         </div>
+      </div>
+
+      {/* Foundation Contact Info (Nepali) */}
+      <div style={{
+        borderTop: '1px solid #e2e8f0',
+        paddingTop: '6px',
+        marginTop: '10px',
+        display: 'flex',
+        flexWrap: 'wrap' as const,
+        justifyContent: 'center',
+        gap: forPrint ? '6px 12px' : '4px 14px',
+        position: 'relative' as const,
+        zIndex: 1,
+      }}>
+        <span style={{ fontSize: forPrint ? '9px' : '10px', color: '#475569', fontWeight: 600 }}>
+          फोन नम्बर: ०१-४११४८८५
+        </span>
+        <span style={{ fontSize: forPrint ? '9px' : '10px', color: '#475569', fontWeight: 600 }}>
+          WhatsApp: ९८५१३१३४८० / ९८५१३५५००२
+        </span>
+        <span style={{ fontSize: forPrint ? '9px' : '10px', color: '#475569', fontWeight: 600 }}>
+          इमेल: trigajur2076@gmail.com
+        </span>
       </div>
     </div>
   );
