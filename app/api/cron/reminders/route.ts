@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
             email: subscriber.email,
             daysUntilExpiry,
             subscriptionEndDate: endDateStr,
-            monthlyRate: subscriber.monthly_rate,
+            monthlyRate: subscriber.monthly_rate || 0,
             frequency: freq,
           });
         }

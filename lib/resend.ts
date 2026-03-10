@@ -1,6 +1,25 @@
 import { Resend } from 'resend';
+import { format } from 'date-fns';
 
 export const resend = new Resend(process.env.RESEND_API_KEY);
+
+/** Format a number with commas (ICU-free) */
+function formatNumber(n: number): string {
+  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+/** Format a date string to a readable format (ICU-free) */
+function formatDate(dateStr: string): string {
+  try {
+    return format(new Date(dateStr), 'EEE, MMM d, yyyy');
+  } catch {
+    return dateStr;
+  }
+}
+
+function formatDateNow(): string {
+  return format(new Date(), 'EEEE, MMMM d, yyyy');
+}
 
 // Admin email for notifications - defaults to Resend test email
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'delivered@resend.dev';
@@ -38,13 +57,8 @@ export async function sendAdminReminderEmail({ subscribers }: AdminReminderEmail
       <td style="padding: 12px; text-align: left;">${sub.email || 'N/A'}</td>
       <td style="padding: 12px; text-align: center;"><span style="display:inline-block;padding:2px 8px;border-radius:4px;background:#f3f4f6;font-weight:600;">${freqLabel(sub.frequency)}</span></td>
       <td style="padding: 12px; text-align: center;">${sub.daysUntilExpiry} day${sub.daysUntilExpiry === 1 ? '' : 's'}</td>
-      <td style="padding: 12px; text-align: left;">${new Date(sub.subscriptionEndDate).toLocaleDateString('en-US', {
-        weekday: 'short',
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      })}</td>
-      <td style="padding: 12px; text-align: right;">NRS ${sub.monthlyRate.toLocaleString()}</td>
+      <td style="padding: 12px; text-align: left;">${formatDate(sub.subscriptionEndDate)}</td>
+      <td style="padding: 12px; text-align: right;">NRS ${formatNumber(sub.monthlyRate || 0)}</td>
     </tr>
   `).join('');
 
@@ -90,12 +104,7 @@ export async function sendAdminReminderEmail({ subscribers }: AdminReminderEmail
           
           <div style="padding: 16px; background: #f3f4f6; border-radius: 0 0 10px 10px; border: 1px solid #e5e7eb; border-top: none;">
             <p style="color: #6b7280; font-size: 12px; margin: 0; text-align: center;">
-              This is an automated notification from SubTrack Admin System • ${new Date().toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
+              This is an automated notification from SubTrack Admin System • ${formatDateNow()}
             </p>
           </div>
         </div>
@@ -164,12 +173,7 @@ export async function sendInactiveSubscriberEmail({ subscribers }: InactiveSubsc
       <td style="padding: 12px; text-align: left;">${sub.name}</td>
       <td style="padding: 12px; text-align: left;">${sub.email || 'N/A'}</td>
       <td style="padding: 12px; text-align: center;"><span style="display:inline-block;padding:2px 8px;border-radius:4px;background:#fef2f2;font-weight:600;color:#991b1b;">${freqLabel(sub.frequency)}</span></td>
-      <td style="padding: 12px; text-align: left;">${new Date(sub.subscriptionEndDate).toLocaleDateString('en-US', {
-        weekday: 'short',
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      })}</td>
+      <td style="padding: 12px; text-align: left;">${formatDate(sub.subscriptionEndDate)}</td>
       <td style="padding: 12px; text-align: center; color: #dc2626;">${sub.daysOverdue} day${sub.daysOverdue === 1 ? '' : 's'}</td>
     </tr>
   `).join('');
@@ -215,12 +219,7 @@ export async function sendInactiveSubscriberEmail({ subscribers }: InactiveSubsc
           
           <div style="padding: 16px; background: #f3f4f6; border-radius: 0 0 10px 10px; border: 1px solid #e5e7eb; border-top: none;">
             <p style="color: #6b7280; font-size: 12px; margin: 0; text-align: center;">
-              This is an automated notification from SubTrack Admin System • ${new Date().toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
+              This is an automated notification from SubTrack Admin System • ${formatDateNow()}
             </p>
           </div>
         </div>
