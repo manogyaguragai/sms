@@ -239,6 +239,9 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
       } else if (subscriber) {
         // EDIT existing subscriber
         // EDIT - do NOT recalculate or overwrite end dates, only update subscriber info
+        // If name or phone changed, reset Nepali fields so they get re-transliterated
+        const nameChanged = formData.full_name !== subscriber.full_name;
+        const phoneChanged = (formData.phone || null) !== subscriber.phone;
         const { error: updateError } = await supabase
           .from('subscribers')
           .update({
@@ -248,6 +251,8 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
             frequency: formData.frequency,
             reminder_days_before: formData.reminder_days_before,
             referred_by: formData.referred_by || null,
+            ...(nameChanged ? { nepali_name: null } : {}),
+            ...(phoneChanged ? { nepali_phone: null } : {}),
           })
           .eq('id', subscriber.id);
 

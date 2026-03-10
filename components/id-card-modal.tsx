@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import {
   Dialog,
@@ -9,7 +9,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Printer, RotateCcw, Pencil } from 'lucide-react';
+import { Printer, RotateCcw, Pencil, Loader2, Check } from 'lucide-react';
+import { toast } from 'sonner';
+import { updateNepaliFields } from '@/app/actions/subscriber';
 import type { Subscriber } from '@/lib/types';
 
 /** Convert English digits (0-9) to Nepali/Devanagari digits (०-९) */
@@ -112,17 +114,44 @@ interface IdCardModalProps {
 export function IdCardModal({ subscriber, open, onClose }: IdCardModalProps) {
   const [showBack, setShowBack] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Editable Nepali fields
-  const [nepaliName, setNepaliName] = useState(() => transliterateToNepali(subscriber.full_name));
-  const [nepaliPhone, setNepaliPhone] = useState(() => subscriber.phone ? toNepaliDigits(subscriber.phone) : '');
+  // Editable Nepali fields — read from DB, fall back to client-side transliteration
+  const [nepaliName, setNepaliName] = useState(() =>
+    subscriber.nepali_name || transliterateToNepali(subscriber.full_name)
+  );
+  const [nepaliPhone, setNepaliPhone] = useState(() =>
+    subscriber.nepali_phone || (subscriber.phone ? toNepaliDigits(subscriber.phone) : '')
+  );
 
-  // Re-compute defaults when subscriber changes
+  // Re-sync when subscriber prop changes (e.g. after page revalidation)
   useEffect(() => {
-    setNepaliName(transliterateToNepali(subscriber.full_name));
-    setNepaliPhone(subscriber.phone ? toNepaliDigits(subscriber.phone) : '');
-  }, [subscriber.full_name, subscriber.phone]);
+    setNepaliName(subscriber.nepali_name || transliterateToNepali(subscriber.full_name));
+    setNepaliPhone(subscriber.nepali_phone || (subscriber.phone ? toNepaliDigits(subscriber.phone) : ''));
+  }, [subscriber.nepali_name, subscriber.nepali_phone, subscriber.full_name, subscriber.phone]);
+
+  // Save edits to DB when done editing
+  const handleDoneEditing = useCallback(async () => {
+    setSaving(true);
+    try {
+      const result = await updateNepaliFields(
+        subscriber.id,
+        nepaliName,
+        nepaliPhone || null
+      );
+      if (result.success) {
+        toast.success('Nepali details saved');
+      } else {
+        toast.error(result.message);
+      }
+    } catch {
+      toast.error('Failed to save Nepali details');
+    } finally {
+      setSaving(false);
+      setEditing(false);
+    }
+  }, [subscriber.id, nepaliName, nepaliPhone]);
 
   const profileUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/subscribers/${subscriber.id}`
@@ -279,11 +308,18 @@ export function IdCardModal({ subscriber, open, onClose }: IdCardModalProps) {
           <div className="flex items-center justify-center gap-2">
             <Button
               variant="outline"
-              onClick={() => setEditing(!editing)}
+              onClick={() => editing ? handleDoneEditing() : setEditing(true)}
+              disabled={saving}
               className={`h-9 px-4 text-sm border-slate-200 ${editing ? 'text-amber-600 border-amber-300 bg-amber-50' : 'text-slate-500 hover:text-slate-700'}`}
             >
-              <Pencil className="w-3.5 h-3.5 mr-1.5" />
-              {editing ? 'Done' : 'Edit'}
+              {saving ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              ) : editing ? (
+                <Check className="w-3.5 h-3.5 mr-1.5" />
+              ) : (
+                    <Pencil className="w-3.5 h-3.5 mr-1.5" />
+              )}
+              {saving ? 'Saving...' : editing ? 'Save' : 'Edit'}
             </Button>
             <Button
               variant="outline"

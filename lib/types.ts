@@ -75,6 +75,8 @@ export interface Subscriber {
   created_at: string;
   status_notes: string | null;
   referred_by: string | null;
+  nepali_name: string | null;
+  nepali_phone: string | null;
 }
 
 export interface Payment {

@@ -422,3 +422,31 @@ export async function updateSubscriberFrequencies(
   }
 }
 
+/**
+ * Update a subscriber's Nepali name and phone fields.
+ * Called from the ID card modal when the user edits Devanagari text.
+ */
+export async function updateNepaliFields(
+  subscriberId: string,
+  nepaliName: string,
+  nepaliPhone: string | null
+): Promise<{ success: boolean; message: string }> {
+  const supabase = createAdminClient();
+
+  try {
+    const { error } = await supabase
+      .from('subscribers')
+      .update({
+        nepali_name: nepaliName,
+        nepali_phone: nepaliPhone,
+      })
+      .eq('id', subscriberId);
+
+    if (error) throw error;
+
+    revalidatePath(`/subscribers/${subscriberId}`);
+    return { success: true, message: 'Nepali details updated' };
+  } catch (error: any) {
+    return { success: false, message: error.message };
+  }
+}
