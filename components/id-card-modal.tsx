@@ -433,6 +433,14 @@ function IdCardFront({ subscriber, profileUrl, forPrint }: {
               textTransform: 'uppercase' as const,
               marginTop: '2px',
             }}>TRIGAJUR SHIVALAYA MANDIR SEWA</span>
+            <span style={{
+              fontSize: forPrint ? '9px' : '10px',
+              fontWeight: 600,
+              color: '#475569',
+              letterSpacing: '0.04em',
+              marginTop: '1px',
+              textAlign: 'center' as const,
+            }}>Gaurighat, Kathmandu - 7</span>
           </div>
         </div>
       </div>
@@ -542,6 +550,13 @@ function IdCardBack({ subscriber, profileUrl, forPrint, nepaliName, nepaliPhone 
               letterSpacing: '0.02em',
               marginTop: '2px',
             }}>त्रिगजुर शिवालय मन्दिर सेवा</span>
+            <span style={{
+              fontSize: forPrint ? '9px' : '10px',
+              fontWeight: 600,
+              color: '#475569',
+              marginTop: '1px',
+              textAlign: 'center' as const,
+            }}>गौरीघाट, काठमाडौँ - ७</span>
           </div>
         </div>
       </div>
