@@ -20,7 +20,7 @@ interface ChartProps {
   }[];
 }
 
-const COLORS = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd'];
+const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6'];
 
 export function DashboardCharts({ collectionRateData, planData }: ChartProps) {
   return (
