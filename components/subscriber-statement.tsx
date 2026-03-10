@@ -345,9 +345,10 @@ export function SubscriberStatement({ subscriber, open, onClose }: SubscriberSta
       .stmt-header{border-bottom:3px solid #1a1a2e;padding-bottom:16px;margin-bottom:16px}
       .stmt-header h1{font-size:22px;font-weight:700;letter-spacing:.5px;margin-bottom:2px}
       .stmt-header .sub{font-size:12px;color:#555}
-      .acct-info{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px;padding:12px 16px;background:#f8f9fa;border:1px solid #e5e7eb;border-radius:6px}
+      .acct-info{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px;padding:12px 16px;background:#f8f9fa;border:1px solid #e5e7eb;border-radius:6px}
       .acct-info .lbl{font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#888;font-weight:600}
       .acct-info .val{font-size:12px;font-weight:500;color:#1a1a2e}
+      .master-id{font-family:'Courier New',monospace;font-weight:700;color:#2563eb;background:#eff6ff;padding:1px 6px;border-radius:3px;font-size:11px}
       .period-info{display:inline-block;padding:3px 10px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:4px;font-size:10px;color:#4338ca;font-weight:600;margin-bottom:8px;margin-right:8px}
       .subscription-section{margin-bottom:18px;page-break-inside:avoid}
       .subscription-heading{padding:8px 14px;font-size:13px;font-weight:700;border-radius:6px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
@@ -380,6 +381,7 @@ export function SubscriberStatement({ subscriber, open, onClose }: SubscriberSta
     </style></head><body>
       <div class="stmt-header"><h1>Payment Statement</h1><p class="sub">SubTrack Management System</p></div>
       <div class="acct-info">
+        <div><div class="lbl">ID</div><div class="val"><span class="master-id">${subscriber.master_id}</span></div></div>
         <div><div class="lbl">Subscriber</div><div class="val">${subscriber.full_name}</div></div>
         <div><div class="lbl">Phone</div><div class="val">${subscriber.phone || '—'}</div></div>
         <div><div class="lbl">Email</div><div class="val">${subscriber.email || '—'}</div></div>
@@ -529,7 +531,11 @@ export function SubscriberStatement({ subscriber, open, onClose }: SubscriberSta
           ) : (
             <div className="space-y-5 mt-4">
               {/* Subscriber Info Card */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">Subscriber ID</p>
+                    <p className="text-sm font-mono font-bold text-blue-600 mt-0.5">{subscriber.master_id}</p>
+                  </div>
                 <div>
                   <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">Subscriber</p>
                   <p className="text-sm font-medium text-gray-900 mt-0.5">{subscriber.full_name}</p>

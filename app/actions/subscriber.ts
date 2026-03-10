@@ -350,6 +350,7 @@ export async function searchSubscribersByName(
   query: string
 ): Promise<{
   id: string;
+  master_id: string;
   full_name: string;
   email: string | null;
   phone: string | null;
@@ -363,7 +364,7 @@ export async function searchSubscribersByName(
 
   const { data, error } = await supabase
     .from('subscribers')
-    .select('id, full_name, email, phone, referred_by, reminder_days_before, frequency')
+    .select('id, master_id, full_name, email, phone, referred_by, reminder_days_before, frequency')
     .ilike('full_name', `%${query.trim()}%`)
     .limit(5);
 

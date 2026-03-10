@@ -41,6 +41,7 @@ import {
   CalendarDays,
   TrendingUp,
   User,
+  IdCard,
 } from 'lucide-react';
 import { differenceInDays, startOfDay } from 'date-fns';
 import NepaliDate from 'nepali-date-converter';
@@ -54,6 +55,7 @@ import { formatNepaliDate, formatNepaliDateTime, toNepaliDateString, fromNepaliD
 import { PaymentPeriodCalendar } from '@/components/payment-period-calendar';
 import { SubscriberStatement } from '@/components/subscriber-statement';
 import { TotalPaymentCard } from '@/components/total-payment-card';
+import { IdCardModal } from '@/components/id-card-modal';
 
 // Nepali month names for parsing payment notes
 const NEPALI_MONTH_NAMES = [
@@ -141,6 +143,7 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
   const [showPaymentDetailModal, setShowPaymentDetailModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [showStatementDialog, setShowStatementDialog] = useState(false);
+  const [showIdCardModal, setShowIdCardModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [newEndDate, setNewEndDate] = useState(() => toNepaliDateString(subscriber.subscription_end_date));
   const [updatingDate, setUpdatingDate] = useState(false);
@@ -247,9 +250,14 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
               <span className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full ${status.dot} border-2 border-white ring-2 ${status.ring}`} />
             </div>
             <div className="min-w-0">
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight truncate">
-                {subscriber.full_name}
-              </h1>
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight truncate">
+                  {subscriber.full_name}
+                </h1>
+                <span className="text-sm font-mono font-extrabold text-blue-700 bg-blue-100 border-2 border-blue-300 px-3 py-1 rounded-lg shrink-0 tracking-wide shadow-sm">
+                  {subscriber.master_id}
+                </span>
+              </div>
               <div className="flex items-center gap-2 mt-1 text-sm text-slate-500 flex-wrap">
                 {subscriber.phone && (
                   <span className="flex items-center gap-1">
@@ -298,6 +306,10 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
               <Button variant="outline" onClick={() => setShowStatementDialog(true)} className="h-9 px-3 border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors">
                 <Printer className="w-3.5 h-3.5 sm:mr-1.5" />
                 <span className="hidden sm:inline">Statement</span>
+              </Button>
+              <Button variant="outline" onClick={() => setShowIdCardModal(true)} className="h-9 px-3 border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors">
+                <IdCard className="w-3.5 h-3.5 sm:mr-1.5" />
+                <span className="hidden sm:inline">ID Card</span>
               </Button>
             </div>
           </div>
@@ -674,6 +686,7 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
       {/* ── Modals ── */}
       <PaymentModal subscriber={subscriber} open={showPaymentModal} onClose={() => setShowPaymentModal(false)} />
       <SubscriberStatement subscriber={subscriber} open={showStatementDialog} onClose={() => setShowStatementDialog(false)} />
+      <IdCardModal subscriber={subscriber} open={showIdCardModal} onClose={() => setShowIdCardModal(false)} />
       <PaymentDetailModal
         payment={selectedPayment}
         open={showPaymentDetailModal}

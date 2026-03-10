@@ -205,7 +205,7 @@ export function SubscriberTable({
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <Input
-            placeholder="Search by name, email, phone, or receipt no..."
+            placeholder="Search by name, ID, email, phone, or receipt no..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10 h-11 bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-blue-600"
@@ -297,6 +297,7 @@ export function SubscriberTable({
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-mono font-extrabold text-blue-700 bg-blue-100 border border-blue-300 px-2 py-0.5 rounded-md shadow-sm">{subscriber.master_id}</span>
                       <h3 className="font-medium text-gray-900 truncate">{subscriber.full_name}</h3>
                       {subscriber.status === 'inactive' && subscriber.status_notes && (
                         <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
@@ -359,6 +360,19 @@ export function SubscriberTable({
             <TableRow className="bg-gray-50 hover:bg-gray-50 border-gray-200">
               <TableHead
                 className="text-gray-500 cursor-pointer hover:bg-gray-100 transition-colors"
+                onClick={() => handleSort('master_id')}
+              >
+                <div className="flex items-center gap-1">
+                  ID
+                  {currentSortBy === 'master_id' ? (
+                    currentSortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 opacity-50" />
+                  )}
+                </div>
+              </TableHead>
+              <TableHead
+                className="text-gray-500 cursor-pointer hover:bg-gray-100 transition-colors"
                 onClick={() => handleSort('full_name')}
               >
                 <div className="flex items-center gap-1">
@@ -394,7 +408,7 @@ export function SubscriberTable({
           <TableBody>
             {subscribers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={9} className="text-center py-8 text-gray-500">
                   {currentSearch || currentStatus || currentFrequency
                     ? 'No subscribers found matching your filters'
                     : 'No subscribers yet'}
@@ -407,6 +421,9 @@ export function SubscriberTable({
                   className="border-gray-200 hover:bg-gray-50 cursor-pointer"
                   onClick={() => router.push(`/subscribers/${subscriber.id}`)}
                 >
+                    <TableCell>
+                      <span className="text-sm font-mono font-extrabold text-blue-700 bg-blue-100 border border-blue-300 px-2 py-0.5 rounded-md shadow-sm">{subscriber.master_id}</span>
+                    </TableCell>
                   <TableCell className="font-medium text-gray-900">
                     <div className="flex items-center gap-2">
                       {subscriber.full_name}

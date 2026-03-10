@@ -95,7 +95,8 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
         const q = searchQuery.toLowerCase().trim();
         const nameMatch = sub.full_name.toLowerCase().includes(q);
         const phoneMatch = sub.phone?.toLowerCase().includes(q) || false;
-        if (!nameMatch && !phoneMatch) return false;
+        const idMatch = sub.master_id?.toLowerCase().includes(q) || false;
+        if (!nameMatch && !phoneMatch && !idMatch) return false;
       }
 
       return true;
@@ -135,6 +136,7 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
     const rows = filteredSubscribers.map((sub, index) => `
       <tr>
         <td class="sn">${index + 1}</td>
+        <td><span class="master-id">${sub.master_id}</span></td>
         <td style="font-weight:500">${sub.full_name}</td>
         <td>${sub.phone || '—'}</td>
         <td><span class="badge badge-${sub.status}">${sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}</span></td>
@@ -220,6 +222,7 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
           .badge-active { background: #dcfce7; color: #166534; }
           .badge-inactive, .badge-expired, .badge-cancelled { background: #fee2e2; color: #991b1b; }
           .sn { width: 35px; text-align: center; color: #888; }
+          .master-id { font-family: 'Courier New', monospace; font-size: 10px; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 1px 6px; border-radius: 3px; }
           .footer {
             margin-top: 16px;
             padding-top: 12px;
@@ -252,6 +255,7 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
           <thead>
             <tr>
               <th class="sn">S.N.</th>
+              <th>ID</th>
               <th>Name</th>
               <th>Phone</th>
               <th>Status</th>
@@ -266,7 +270,7 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
           <tbody>
             ${rows}
             <tr class="total-row">
-              <td colspan="6" style="text-align:right">Grand Total</td>
+              <td colspan="7" style="text-align:right">Grand Total</td>
               <td class="text-right">Rs. ${grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
               <td></td>
               <td></td>
@@ -448,6 +452,7 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
                         <thead>
                             <tr className="bg-gray-900 text-white">
                               <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider w-10 text-center">S.N.</th>
+                              <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">ID</th>
                               <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">Name</th>
                               <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">Phone</th>
                               <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">Status</th>
@@ -463,6 +468,7 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
                             {filteredSubscribers.map((sub, index) => (
                               <tr key={sub.id} className={index % 2 === 1 ? 'bg-gray-50' : ''}>
                                 <td className="px-3 py-2 text-center text-gray-500 text-xs">{index + 1}</td>
+                                <td className="px-3 py-2"><span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{sub.master_id}</span></td>
                                 <td className="px-3 py-2 font-medium text-gray-900">{sub.full_name}</td>
                                 <td className="px-3 py-2 text-gray-600">{sub.phone || '—'}</td>
                                 <td className="px-3 py-2">
@@ -508,7 +514,7 @@ export function PrintSubscriberList({ open, onClose }: PrintSubscriberListProps)
                             ))}
                             {/* Grand Total Row */}
                             <tr className="bg-blue-50 border-t-2 border-gray-900">
-                              <td colSpan={6} className="px-3 py-2.5 text-right font-bold text-gray-900">Grand Total</td>
+                              <td colSpan={7} className="px-3 py-2.5 text-right font-bold text-gray-900">Grand Total</td>
                               <td className="px-3 py-2.5 text-right font-bold text-gray-900">
                                 Rs. {grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                               </td>
