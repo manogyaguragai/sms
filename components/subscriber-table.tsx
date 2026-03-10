@@ -37,13 +37,20 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { MoreHorizontal, Eye, Trash2, Search, Loader2, AlertCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { MoreHorizontal, Eye, Trash2, Search, Loader2, AlertCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, X } from 'lucide-react';
 import { format, differenceInDays, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
 import { formatNepaliDate } from '@/lib/nepali-date';
@@ -85,6 +92,17 @@ export function SubscriberTable({
   const searchParams = useSearchParams();
   const { hasPermission } = useRole();
   const canDelete = hasPermission('DELETE_SUBSCRIBER');
+
+  // Parse comma-separated filter values
+  const selectedStatuses = currentStatus ? currentStatus.split(',').filter(Boolean) : [];
+  const selectedFrequencies = currentFrequency ? currentFrequency.split(',').filter(Boolean) : [];
+
+  const toggleFilter = useCallback((filterKey: string, value: string, currentValues: string[]) => {
+    const newValues = currentValues.includes(value)
+      ? currentValues.filter(v => v !== value)
+      : [...currentValues, value];
+    updateParams({ [filterKey]: newValues.join(','), page: '1' });
+  }, []);
 
   // Debounced search
   useEffect(() => {
@@ -216,36 +234,108 @@ export function SubscriberTable({
         <div className="flex flex-wrap gap-2 items-center">
           <Filter className="w-4 h-4 text-gray-500 hidden sm:block" />
 
-          {/* Status Filter */}
-          <Select
-            value={currentStatus || 'all'}
-            onValueChange={(value) => updateParams({ status: value === 'all' ? '' : value, page: '1' })}
-          >
-            <SelectTrigger className="w-full sm:w-[130px] h-10 bg-white border-gray-200 text-gray-900 text-sm">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent className="bg-white border-gray-200">
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* Status Filter - Multiselect */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={`w-full sm:w-auto h-10 border-gray-200 text-sm justify-between gap-2 ${selectedStatuses.length > 0 ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white text-gray-900'
+                  }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  Status
+                  {selectedStatuses.length > 0 && (
+                    <Badge className="bg-blue-600 text-white text-xs px-1.5 py-0 min-w-[20px] h-5 flex items-center justify-center rounded-full">
+                      {selectedStatuses.length}
+                    </Badge>
+                  )}
+                </span>
+                <ChevronDown className="h-4 w-4 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[180px] p-2 bg-white border-gray-200" align="start">
+              <div className="space-y-1">
+                {[
+                  { value: 'active', label: 'Active' },
+                  { value: 'inactive', label: 'Inactive' },
+                ].map((option) => (
+                  <label
+                    key={option.value}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 cursor-pointer transition-colors"
+                  >
+                    <Checkbox
+                      checked={selectedStatuses.includes(option.value)}
+                      onCheckedChange={() => toggleFilter('status', option.value, selectedStatuses)}
+                    />
+                    <span className="text-sm text-gray-700">{option.label}</span>
+                  </label>
+                ))}
+                {selectedStatuses.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => updateParams({ status: '', page: '1' })}
+                    className="w-full text-xs text-gray-500 hover:text-gray-700 mt-1"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Clear
+                  </Button>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
 
-          {/* Frequency Filter */}
-          <Select
-            value={currentFrequency || 'all'}
-            onValueChange={(value) => updateParams({ frequency: value === 'all' ? '' : value, page: '1' })}
-          >
-            <SelectTrigger className="w-full sm:w-[130px] h-10 bg-white border-gray-200 text-gray-900 text-sm">
-              <SelectValue placeholder="Frequency" />
-            </SelectTrigger>
-            <SelectContent className="bg-white border-gray-200">
-              <SelectItem value="all">All Frequency</SelectItem>
-              <SelectItem value="monthly">Monthly</SelectItem>
-              <SelectItem value="annual">Annual</SelectItem>
-              <SelectItem value="12_hajar">12 Hajar</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* Frequency Filter - Multiselect */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={`w-full sm:w-auto h-10 border-gray-200 text-sm justify-between gap-2 ${selectedFrequencies.length > 0 ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white text-gray-900'
+                  }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  Frequency
+                  {selectedFrequencies.length > 0 && (
+                    <Badge className="bg-blue-600 text-white text-xs px-1.5 py-0 min-w-[20px] h-5 flex items-center justify-center rounded-full">
+                      {selectedFrequencies.length}
+                    </Badge>
+                  )}
+                </span>
+                <ChevronDown className="h-4 w-4 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[180px] p-2 bg-white border-gray-200" align="start">
+              <div className="space-y-1">
+                {[
+                  { value: 'monthly', label: 'Monthly' },
+                  { value: 'annual', label: 'Annual' },
+                  { value: '12_hajar', label: '12 Hajar' },
+                ].map((option) => (
+                  <label
+                    key={option.value}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 cursor-pointer transition-colors"
+                  >
+                    <Checkbox
+                      checked={selectedFrequencies.includes(option.value)}
+                      onCheckedChange={() => toggleFilter('frequency', option.value, selectedFrequencies)}
+                    />
+                    <span className="text-sm text-gray-700">{option.label}</span>
+                  </label>
+                ))}
+                {selectedFrequencies.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => updateParams({ frequency: '', page: '1' })}
+                    className="w-full text-xs text-gray-500 hover:text-gray-700 mt-1"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Clear
+                  </Button>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
 
           {/* No Payments Toggle */}
           <Button

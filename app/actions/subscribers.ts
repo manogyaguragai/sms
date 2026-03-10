@@ -35,6 +35,10 @@ export async function getSubscribersPaginated(
   const search = params.search || '';
   const status = params.status || '';
   const frequency = params.frequency || '';
+
+  // Parse comma-separated filter values into arrays
+  const statusValues = status ? status.split(',').filter(Boolean) : [];
+  const frequencyValues = frequency ? frequency.split(',').filter(Boolean) : [];
   const noPayments = params.noPayments || false;
   const sortBy = params.sortBy || 'subscription_end_date';
   const sortOrder = params.sortOrder || 'asc';
@@ -103,14 +107,19 @@ export async function getSubscribersPaginated(
     }
   }
 
-  // Apply status filter
-  if (status && status !== 'all') {
-    query = query.eq('status', status);
+  // Apply status filter (multi-select)
+  if (statusValues.length > 0) {
+    query = query.in('status', statusValues);
   }
 
-  // Apply frequency filter
-  if (frequency && frequency !== 'all') {
-    query = query.contains('frequency', [frequency]);
+  // Apply frequency filter (multi-select, exact match)
+  // Uses contains (@>) + containedBy (<@) to ensure exact array match
+  // e.g., selecting 'monthly' shows only subscribers with frequency = ['monthly']
+  // selecting 'monthly' + '12_hajar' shows subscribers with frequency = ['monthly', '12_hajar']
+  if (frequencyValues.length > 0) {
+    query = query
+      .contains('frequency', frequencyValues)
+      .containedBy('frequency', frequencyValues);
   }
 
   // Apply ordering and pagination
