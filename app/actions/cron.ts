@@ -5,6 +5,12 @@ import { sendAdminReminderEmail, sendInactiveSubscriberEmail } from "@/lib/resen
 import { sendAdminReminderSMS, sendInactiveSubscriberSMS } from "@/lib/notification";
 import { differenceInDays, startOfDay, format } from "date-fns";
 
+/** Convert a Date to Nepal Standard Time (UTC+5:45) */
+function toNepalTime(date: Date): Date {
+  const utcMs = date.getTime() + date.getTimezoneOffset() * 60000;
+  return new Date(utcMs + 5 * 3600000 + 45 * 60000);
+}
+
 interface InactiveSubscriberInfo {
   name: string;
   email: string;
@@ -29,7 +35,7 @@ export async function testCronJobAction() {
     }
 
     // Use Nepal timezone for accurate day-boundary comparison
-    const nowInNepal = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kathmandu' }));
+    const nowInNepal = toNepalTime(new Date());
     const today = startOfDay(nowInNepal);
     
     // Collect subscribers whose subscription is ending within their reminder window
@@ -52,7 +58,7 @@ export async function testCronJobAction() {
         if (!endDateStr) continue;
 
         // Parse in Nepal timezone so "2026-03-14T18:15:00.000Z" → March 15 NPT (not March 14 UTC)
-        const endInNepal = new Date(new Date(endDateStr).toLocaleString('en-US', { timeZone: 'Asia/Kathmandu' }));
+        const endInNepal = toNepalTime(new Date(endDateStr));
         const endDate = startOfDay(endInNepal);
         const daysUntilExpiry = differenceInDays(endDate, today);
 
@@ -129,7 +135,7 @@ export async function checkExpiredSubscriptions() {
       return { success: true, message: 'No active subscribers found', inactiveCount: 0 };
     }
 
-    const nowInNepal = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kathmandu' }));
+    const nowInNepal = toNepalTime(new Date());
     const today = startOfDay(nowInNepal);
     const subscribersToDeactivate: InactiveSubscriberInfo[] = [];
     const subscriberIdsToUpdate: string[] = [];
@@ -148,7 +154,7 @@ export async function checkExpiredSubscriptions() {
 
         hasAnyFrequency = true;
         // Parse in Nepal timezone so "2026-03-14T18:15:00.000Z" → March 15 NPT (not March 14 UTC)
-        const endInNepal = new Date(new Date(endDateStr).toLocaleString('en-US', { timeZone: 'Asia/Kathmandu' }));
+        const endInNepal = toNepalTime(new Date(endDateStr));
         const endDate = startOfDay(endInNepal);
         const daysOverdue = differenceInDays(today, endDate);
 
