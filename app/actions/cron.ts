@@ -51,7 +51,9 @@ export async function testCronJobAction() {
         const endDateStr = endDates[freq];
         if (!endDateStr) continue;
 
-        const endDate = startOfDay(new Date(endDateStr));
+        // Parse in Nepal timezone so "2026-03-14T18:15:00.000Z" → March 15 NPT (not March 14 UTC)
+        const endInNepal = new Date(new Date(endDateStr).toLocaleString('en-US', { timeZone: 'Asia/Kathmandu' }));
+        const endDate = startOfDay(endInNepal);
         const daysUntilExpiry = differenceInDays(endDate, today);
 
         // Check if days until expiry matches the subscriber's reminder setting
@@ -145,7 +147,9 @@ export async function checkExpiredSubscriptions() {
         if (!endDateStr) continue;
 
         hasAnyFrequency = true;
-        const endDate = startOfDay(new Date(endDateStr));
+        // Parse in Nepal timezone so "2026-03-14T18:15:00.000Z" → March 15 NPT (not March 14 UTC)
+        const endInNepal = new Date(new Date(endDateStr).toLocaleString('en-US', { timeZone: 'Asia/Kathmandu' }));
+        const endDate = startOfDay(endInNepal);
         const daysOverdue = differenceInDays(today, endDate);
 
         if (daysOverdue > GRACE_PERIOD_DAYS) {

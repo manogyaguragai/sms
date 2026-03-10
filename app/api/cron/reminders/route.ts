@@ -82,7 +82,9 @@ export async function GET(request: NextRequest) {
         if (!endDateStr) continue;
 
         hasAnyFrequency = true;
-        const endDate = startOfDay(new Date(endDateStr));
+        // Parse in Nepal timezone so "2026-03-14T18:15:00.000Z" → March 15 NPT (not March 14 UTC)
+        const endInNepal = new Date(new Date(endDateStr).toLocaleString('en-US', { timeZone: 'Asia/Kathmandu' }));
+        const endDate = startOfDay(endInNepal);
         const daysUntilExpiry = differenceInDays(endDate, today);
         const daysOverdue = differenceInDays(today, endDate);
 

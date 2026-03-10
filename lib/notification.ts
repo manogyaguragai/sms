@@ -1,5 +1,3 @@
-'use server';
-
 // NotificationAPI SDK for SMS
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const notificationapi = require('notificationapi-node-server-sdk').default;
