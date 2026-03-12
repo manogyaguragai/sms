@@ -23,6 +23,8 @@ const PERMISSIONS = {
   CREATE_PAYMENT: ['super_admin', 'admin', 'staff'] as UserRole[],
   UPDATE_PAYMENT: ['super_admin', 'admin', 'staff'] as UserRole[],
   DELETE_PAYMENT: ['super_admin', 'admin'] as UserRole[],
+  VIEW_FOLLOWUPS: ['super_admin', 'admin', 'staff', 'view_only'] as UserRole[],
+  CREATE_FOLLOWUP: ['super_admin', 'admin', 'staff'] as UserRole[],
   VIEW_USERS: ['super_admin', 'admin'] as UserRole[],
   CREATE_USER: ['super_admin', 'admin'] as UserRole[],
   EDIT_USER: ['super_admin'] as UserRole[],

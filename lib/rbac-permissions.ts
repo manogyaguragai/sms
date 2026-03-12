@@ -17,6 +17,12 @@ export const PERMISSIONS = {
   UPDATE_PAYMENT: ['super_admin', 'admin', 'staff'] as UserRole[],
   DELETE_PAYMENT: ['super_admin', 'admin'] as UserRole[],
 
+  // Followup operations
+  VIEW_FOLLOWUPS: ['super_admin', 'admin', 'staff', 'view_only'] as UserRole[],
+  CREATE_FOLLOWUP: ['super_admin', 'admin', 'staff'] as UserRole[],
+  UPDATE_FOLLOWUP: ['super_admin', 'admin'] as UserRole[],
+  DELETE_FOLLOWUP: ['super_admin', 'admin'] as UserRole[],
+
   // User management
   VIEW_USERS: ['super_admin', 'admin'] as UserRole[],
   CREATE_USER: ['super_admin', 'admin'] as UserRole[],
