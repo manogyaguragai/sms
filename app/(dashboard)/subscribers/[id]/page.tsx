@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { notFound } from 'next/navigation';
 import { SubscriberProfile } from '@/components/subscriber-profile';
+import { hasPermission } from '@/lib/rbac';
 import type { Subscriber, Payment } from '@/lib/types';
 import NepaliDate from 'nepali-date-converter';
 
@@ -191,11 +192,20 @@ async function getSubscriber(id: string) {
 
 export default async function SubscriberDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const data = await getSubscriber(id);
+  const [data, canCreateFollowup] = await Promise.all([
+    getSubscriber(id),
+    hasPermission('CREATE_FOLLOWUP'),
+  ]);
 
   if (!data) {
     notFound();
   }
 
-  return <SubscriberProfile subscriber={data.subscriber} payments={data.payments} />;
+  return (
+    <SubscriberProfile
+      subscriber={data.subscriber}
+      payments={data.payments}
+      canCreateFollowup={canCreateFollowup}
+    />
+  );
 }

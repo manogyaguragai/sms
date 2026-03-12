@@ -42,6 +42,7 @@ import {
   TrendingUp,
   User,
   IdCard,
+  PhoneCall,
 } from 'lucide-react';
 import { differenceInDays, startOfDay } from 'date-fns';
 import NepaliDate from 'nepali-date-converter';
@@ -56,6 +57,7 @@ import { PaymentPeriodCalendar } from '@/components/payment-period-calendar';
 import { SubscriberStatement } from '@/components/subscriber-statement';
 import { TotalPaymentCard } from '@/components/total-payment-card';
 import { IdCardModal } from '@/components/id-card-modal';
+import { SubscriberFollowupsModal } from '@/components/subscriber-followups-modal';
 
 // Nepali month names for parsing payment notes
 const NEPALI_MONTH_NAMES = [
@@ -128,9 +130,10 @@ function getSubscriptionStartDate(freqPayments: Payment[]): Date | null {
 interface SubscriberProfileProps {
   subscriber: Subscriber;
   payments: Payment[];
+  canCreateFollowup: boolean;
 }
 
-export function SubscriberProfile({ subscriber, payments }: SubscriberProfileProps) {
+export function SubscriberProfile({ subscriber, payments, canCreateFollowup }: SubscriberProfileProps) {
   const router = useRouter();
   const { hasPermission } = useRole();
   const canDelete = hasPermission('DELETE_SUBSCRIBER');
@@ -144,6 +147,7 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [showStatementDialog, setShowStatementDialog] = useState(false);
   const [showIdCardModal, setShowIdCardModal] = useState(false);
+  const [showFollowupsModal, setShowFollowupsModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [newEndDate, setNewEndDate] = useState(() => toNepaliDateString(subscriber.subscription_end_date));
   const [updatingDate, setUpdatingDate] = useState(false);
@@ -310,6 +314,10 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
               <Button variant="outline" onClick={() => setShowIdCardModal(true)} className="h-9 px-3 border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors">
                 <IdCard className="w-3.5 h-3.5 sm:mr-1.5" />
                 <span className="hidden sm:inline">ID Card</span>
+              </Button>
+              <Button variant="outline" onClick={() => setShowFollowupsModal(true)} className="h-9 px-3 border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors">
+                <PhoneCall className="w-3.5 h-3.5 sm:mr-1.5" />
+                <span className="hidden sm:inline">Followups</span>
               </Button>
             </div>
           </div>
@@ -687,6 +695,13 @@ export function SubscriberProfile({ subscriber, payments }: SubscriberProfilePro
       <PaymentModal subscriber={subscriber} open={showPaymentModal} onClose={() => setShowPaymentModal(false)} />
       <SubscriberStatement subscriber={subscriber} open={showStatementDialog} onClose={() => setShowStatementDialog(false)} />
       <IdCardModal subscriber={subscriber} open={showIdCardModal} onClose={() => setShowIdCardModal(false)} />
+      <SubscriberFollowupsModal
+        subscriberId={subscriber.id}
+        subscriberName={subscriber.full_name}
+        open={showFollowupsModal}
+        onClose={() => setShowFollowupsModal(false)}
+        canCreateFollowup={canCreateFollowup}
+      />
       <PaymentDetailModal
         payment={selectedPayment}
         open={showPaymentDetailModal}

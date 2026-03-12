@@ -23,6 +23,7 @@ import {
   Shield,
   DollarSign,
   TrendingDown,
+  PhoneCall,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 
@@ -39,6 +40,7 @@ const allNavigation: NavItem[] = [
   { name: 'Churn Timeline', href: '/churn-timeline', icon: TrendingDown },
   // { name: 'Financials', href: '/financials', icon: DollarSign },
   { name: 'Subscribers', href: '/subscribers', icon: Users },
+  { name: 'Followups', href: '/followups', icon: PhoneCall },
   { name: 'Add New', href: '/subscribers/new', icon: UserPlus, requiredRoles: ['super_admin', 'admin', 'staff'] },
   { name: 'Activity Logs', href: '/activity-logs', icon: Activity, requiredRoles: ['super_admin', 'admin'] },
   { name: 'Users', href: '/users', icon: Shield, requiredRoles: ['super_admin', 'admin'] },

@@ -45,7 +45,8 @@ export type ActionType =
   | 'SMS_SENT'
   | 'DATA_EXPORTED'
   | 'SETTINGS_UPDATED'
-  | 'CRON_TRIGGERED';
+  | 'CRON_TRIGGERED'
+  | 'FOLLOWUP_CREATED';
 
 // Action type categories for UI color coding
 export const ACTION_CATEGORIES = {
@@ -114,6 +115,31 @@ export interface PaymentFormData {
   notes?: string;
   proof_file?: File;
   payment_for?: string;
+}
+
+// Followup types
+export interface Followup {
+  id: string;
+  subscriber_id: string;
+  made_by: string[]; // array of profile UUIDs
+  phone_number: string | null;
+  followup_date: string; // Nepali date string e.g. "2082-11-28"
+  followup_time: string | null;
+  notes: string | null;
+  created_at: string;
+  created_by: string;
+}
+
+export interface FollowupWithDetails extends Followup {
+  subscribers: {
+    id: string;
+    full_name: string;
+    master_id: string;
+    phone: string | null;
+    email: string | null;
+  };
+  // made_by profile names resolved at query time
+  made_by_names?: string[];
 }
 
 // Dashboard stats
