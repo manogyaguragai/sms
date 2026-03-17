@@ -284,3 +284,77 @@ export async function logUserUpdated(
   });
 }
 
+/**
+ * Log followup creation
+ */
+export async function logFollowupCreated(
+  followupId: string,
+  subscriberName: string,
+  details: {
+    followup_date: string;
+    made_by_names: string[];
+    phone_number?: string;
+    followup_time?: string;
+    notes?: string;
+  }
+): Promise<void> {
+  await logActivity({
+    actionType: 'FOLLOWUP_CREATED',
+    description: `Created followup for ${subscriberName}`,
+    targetTable: 'followups',
+    targetId: followupId,
+    metadata: {
+      subscriber_name: subscriberName,
+      followup_date: details.followup_date,
+      made_by: details.made_by_names,
+      phone_number: details.phone_number,
+      followup_time: details.followup_time,
+      notes: details.notes,
+    },
+  });
+}
+
+/**
+ * Log followup update
+ */
+export async function logFollowupUpdated(
+  followupId: string,
+  subscriberName: string,
+  changes: Record<string, { from: unknown; to: unknown }>
+): Promise<void> {
+  await logActivity({
+    actionType: 'FOLLOWUP_UPDATED',
+    description: `Updated followup for ${subscriberName}`,
+    targetTable: 'followups',
+    targetId: followupId,
+    metadata: {
+      subscriber_name: subscriberName,
+      changes,
+    },
+  });
+}
+
+/**
+ * Log followup deletion
+ */
+export async function logFollowupDeleted(
+  followupId: string,
+  subscriberName: string,
+  details: {
+    followup_date: string;
+    made_by_names?: string[];
+  }
+): Promise<void> {
+  await logActivity({
+    actionType: 'FOLLOWUP_DELETED',
+    description: `Deleted followup for ${subscriberName}`,
+    targetTable: 'followups',
+    targetId: followupId,
+    metadata: {
+      subscriber_name: subscriberName,
+      followup_date: details.followup_date,
+      made_by: details.made_by_names,
+    },
+  });
+}
+

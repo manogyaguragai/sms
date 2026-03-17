@@ -796,7 +796,7 @@ export function SubscriberProfile({ subscriber, payments, canCreateFollowup }: S
             <DialogTitle className="text-slate-900">Edit Subscriber</DialogTitle>
             <DialogDescription className="text-slate-500">Update the subscriber information below.</DialogDescription>
           </DialogHeader>
-          <SubscriberForm subscriber={subscriber} mode="edit" hideHeader />
+          <SubscriberForm subscriber={subscriber} mode="edit" hideHeader onSuccess={() => { setShowEditModal(false); router.refresh(); }} />
         </DialogContent>
       </Dialog>
 

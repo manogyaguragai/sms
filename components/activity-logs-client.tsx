@@ -29,6 +29,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import type { ActivityLog, ActionType, ACTION_CATEGORIES } from '@/lib/types';
+import { PhoneCall } from 'lucide-react';
 
 interface ActivityLogsClientProps {
   canViewComms: boolean;
@@ -51,6 +52,9 @@ const ACTION_CONFIG: Record<string, { label: string; color: string; icon: React.
   DATA_EXPORTED: { label: 'Data Exported', color: 'bg-purple-100 text-purple-700', icon: <Download className="w-3 h-3" /> },
   SETTINGS_UPDATED: { label: 'Settings Updated', color: 'bg-yellow-100 text-yellow-700', icon: <Edit className="w-3 h-3" /> },
   CRON_TRIGGERED: { label: 'Cron Triggered', color: 'bg-gray-100 text-gray-700', icon: <Clock className="w-3 h-3" /> },
+  FOLLOWUP_CREATED: { label: 'Followup Created', color: 'bg-green-100 text-green-700', icon: <PhoneCall className="w-3 h-3" /> },
+  FOLLOWUP_UPDATED: { label: 'Followup Updated', color: 'bg-blue-100 text-blue-700', icon: <PhoneCall className="w-3 h-3" /> },
+  FOLLOWUP_DELETED: { label: 'Followup Deleted', color: 'bg-red-100 text-red-700', icon: <PhoneCall className="w-3 h-3" /> },
 };
 
 export default function ActivityLogsClient({ canViewComms: initialCanViewComms, initialUsers }: ActivityLogsClientProps) {
@@ -305,26 +309,15 @@ export default function ActivityLogsClient({ canViewComms: initialCanViewComms, 
                       {/* Expanded Detail View */}
                       {selectedLog?.id === log.id && (
                         <div className="mt-4 p-4 bg-gray-50 rounded-lg text-sm">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {log.target_table && (
-                              <div>
-                                <span className="text-gray-500">Target:</span>{' '}
-                                <span className="text-gray-900">{log.target_table}</span>
-                              </div>
-                            )}
-                            {log.target_id && (
-                              <div>
-                                <span className="text-gray-500">Target ID:</span>{' '}
-                                <code className="text-xs bg-gray-200 px-1 rounded">{log.target_id}</code>
-                              </div>
-                            )}
-                          </div>
+                          {log.target_table && (
+                            <div className="mb-3">
+                              <span className="text-gray-500">Target:</span>{' '}
+                              <span className="text-gray-900 capitalize">{log.target_table}</span>
+                            </div>
+                          )}
                           {Object.keys(log.metadata).length > 0 && (
-                            <div className="mt-3">
-                              <span className="text-gray-500 block mb-2">Metadata:</span>
-                              <pre className="bg-gray-100 p-3 rounded text-xs overflow-x-auto">
-                                {JSON.stringify(log.metadata, null, 2)}
-                              </pre>
+                            <div>
+                              <MetadataDisplay metadata={log.metadata} actionType={log.action_type} />
                             </div>
                           )}
                         </div>
@@ -384,6 +377,88 @@ export default function ActivityLogsClient({ canViewComms: initialCanViewComms, 
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+/* ─── Human-readable metadata display ─── */
+
+/** Keys to skip in metadata rendering (already shown in description) */
+const SKIP_KEYS = ['subscriber_name', 'user_name', 'export_type'];
+
+/** Convert snake_case / camelCase keys to a readable label */
+function toLabel(key: string): string {
+  return key
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/** Strip HTML tags for display */
+function stripHtml(str: string): string {
+  return str.replace(/<[^>]*>/g, '').trim();
+}
+
+/** Format a single value for display */
+function formatValue(val: unknown): string {
+  if (val === null || val === undefined || val === '') return '—';
+  if (Array.isArray(val)) return val.map(v => String(v)).join(', ');
+  if (typeof val === 'string') {
+    // Strip HTML if it looks like rich text
+    if (val.includes('<')) return stripHtml(val) || '—';
+    return val;
+  }
+  if (typeof val === 'number') return String(val);
+  return JSON.stringify(val);
+}
+
+function MetadataDisplay({ metadata, actionType }: { metadata: Record<string, unknown>; actionType: string }) {
+  const isUpdate = actionType.includes('UPDATED');
+  const isCreate = actionType.includes('CREATED');
+  const isDelete = actionType.includes('DELETED');
+
+  // Check if metadata has a "changes" field (used by updates)
+  const changes = metadata.changes as Record<string, { from: unknown; to: unknown }> | undefined;
+
+  return (
+    <div className="space-y-2">
+      {/* Render top-level metadata fields (excluding 'changes') */}
+      {Object.entries(metadata)
+        .filter(([key]) => key !== 'changes' && !SKIP_KEYS.includes(key))
+        .map(([key, value]) => {
+          // Skip null/undefined/empty
+          if (value === null || value === undefined || value === '') return null;
+          
+          return (
+            <div key={key} className="flex items-start gap-2">
+              <span className="text-gray-500 text-xs font-medium shrink-0 min-w-[90px]">
+                {toLabel(key)}:
+              </span>
+              <span className="text-gray-800 text-xs">
+                {formatValue(value)}
+              </span>
+            </div>
+          );
+        })}
+
+      {/* Render changes (from → to) for updates */}
+      {changes && Object.keys(changes).length > 0 && (
+        <div className="mt-2 space-y-1.5">
+          <span className="text-gray-500 text-xs font-semibold block">Changes:</span>
+          {Object.entries(changes).map(([field, change]) => (
+            <div key={field} className="flex items-start gap-2 pl-2 border-l-2 border-blue-200">
+              <span className="text-gray-600 text-xs font-medium shrink-0 min-w-[80px]">
+                {field}:
+              </span>
+              <span className="text-xs">
+                <span className="text-red-500 line-through">{formatValue(change.from)}</span>
+                <span className="text-gray-400 mx-1">→</span>
+                <span className="text-green-600 font-medium">{formatValue(change.to)}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

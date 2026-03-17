@@ -46,7 +46,9 @@ export type ActionType =
   | 'DATA_EXPORTED'
   | 'SETTINGS_UPDATED'
   | 'CRON_TRIGGERED'
-  | 'FOLLOWUP_CREATED';
+  | 'FOLLOWUP_CREATED'
+  | 'FOLLOWUP_UPDATED'
+  | 'FOLLOWUP_DELETED';
 
 // Action type categories for UI color coding
 export const ACTION_CATEGORIES = {

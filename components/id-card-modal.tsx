@@ -300,9 +300,8 @@ function TempleWatermark() {
   );
 }
 
-/* ─── Profile Photo or Initials ─── */
+/* ─── Profile Photo or Nothing ─── */
 function ProfilePhoto({ subscriber, size, forPrint }: { subscriber: Subscriber; size: number; forPrint?: boolean }) {
-  const initials = subscriber.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
   const borderWidth = Math.max(2, Math.round(size * 0.04));
 
   if (subscriber.profile_picture_url) {
@@ -322,28 +321,7 @@ function ProfilePhoto({ subscriber, size, forPrint }: { subscriber: Subscriber; 
     );
   }
 
-  return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-        border: `${borderWidth}px solid #e2e8f0`,
-      }}
-    >
-      <span style={{
-        color: 'white',
-        fontWeight: 800,
-        fontSize: forPrint ? `${Math.round(size * 0.35)}px` : `${Math.round(size * 0.38)}px`,
-        letterSpacing: '-0.02em',
-      }}>{initials}</span>
-    </div>
-  );
+  return null;
 }
 
 /* ─── Front (English) ─── */

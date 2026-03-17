@@ -21,6 +21,7 @@ interface SubscriberFormProps {
   subscriber?: Subscriber;
   mode: 'create' | 'edit';
   hideHeader?: boolean;
+  onSuccess?: () => void;
 }
 
 type SubscriberSuggestion = {
@@ -76,7 +77,7 @@ function compressImage(file: File): Promise<File> {
   });
 }
 
-export function SubscriberForm({ subscriber, mode, hideHeader }: SubscriberFormProps) {
+export function SubscriberForm({ subscriber, mode, hideHeader, onSuccess }: SubscriberFormProps) {
   const router = useRouter();
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
@@ -369,16 +370,34 @@ export function SubscriberForm({ subscriber, mode, hideHeader }: SubscriberFormP
 
         if (updateError) throw updateError;
 
-        await logSubscriberUpdate(subscriber.id, formData.full_name, {
-          full_name: formData.full_name,
-          email: formData.email,
-          phone: formData.phone,
-          frequency: formData.frequency,
-        });
+        // Build a diff of what actually changed for detailed activity logging
+        const changes: Record<string, { from: unknown; to: unknown }> = {};
+        const fieldPairs: [string, unknown, unknown][] = [
+          ['Name', subscriber.full_name, formData.full_name],
+          ['Email', subscriber.email, formData.email || null],
+          ['Phone', subscriber.phone, formData.phone || null],
+          ['Frequency', (subscriber.frequency || []).sort().join(', '), (formData.frequency || []).sort().join(', ')],
+          ['Reminder Days', subscriber.reminder_days_before, formData.reminder_days_before],
+          ['Referred By', subscriber.referred_by, formData.referred_by || null],
+          ['Nepali Name', subscriber.nepali_name, formData.nepali_name || null],
+          ['Date of Birth (BS)', subscriber.date_of_birth_bs, formData.date_of_birth_bs || null],
+          ['Profile Picture', subscriber.profile_picture_url ? 'Yes' : 'No', profilePictureUrl ? 'Yes' : 'No'],
+        ];
+        for (const [label, oldVal, newVal] of fieldPairs) {
+          if (String(oldVal ?? '') !== String(newVal ?? '')) {
+            changes[label] = { from: oldVal, to: newVal };
+          }
+        }
+
+        await logSubscriberUpdate(subscriber.id, formData.full_name, changes);
 
         toast.success('Subscriber updated successfully!');
-        router.push(`/subscribers/${subscriber.id}`);
-        router.refresh();
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          router.push(`/subscribers/${subscriber.id}`);
+          router.refresh();
+        }
       }
     } catch (error) {
       console.error('Error saving subscriber:', error);
