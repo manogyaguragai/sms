@@ -372,6 +372,8 @@ export async function logEventCreated(
     recurring_count?: number;
     recurring_indefinite?: boolean;
     notes?: string;
+    referred_by?: string;
+    form_number?: string;
   }
 ): Promise<void> {
   await logActivity({

@@ -163,6 +163,8 @@ export interface Event {
   recurring_count: number | null;
   recurring_indefinite: boolean;
   notes: string | null;
+  referred_by: string | null;
+  form_number: string | null;
   created_at: string;
   created_by: string;
 }
@@ -189,6 +191,8 @@ export interface CalendarEvent {
   is_recurring: boolean;
   source_event_id?: string; // original event id for recurring instances
   notes: string | null;
+  referred_by: string | null;
+  form_number: string | null;
 }
 
 // Dashboard stats

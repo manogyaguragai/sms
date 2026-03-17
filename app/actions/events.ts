@@ -124,6 +124,8 @@ export async function getEventsForMonth(
       is_birthday: false,
       is_recurring: false,
       notes: ev.notes,
+      referred_by: ev.referred_by || null,
+      form_number: ev.form_number || null,
     });
   }
 
@@ -166,6 +168,8 @@ export async function getEventsForMonth(
           is_recurring: true,
           source_event_id: ev.id,
           notes: ev.notes,
+          referred_by: ev.referred_by || null,
+          form_number: ev.form_number || null,
         });
       }
     }
@@ -194,6 +198,8 @@ export async function getEventsForMonth(
         is_birthday: true,
         is_recurring: false,
         notes: null,
+        referred_by: null,
+        form_number: null,
       });
     }
   }
@@ -217,6 +223,64 @@ export async function getEventById(eventId: string): Promise<EventWithDetails | 
   return data as EventWithDetails;
 }
 
+/**
+ * Get events for the list view with pagination and search
+ */
+export async function getEventsForList(params: {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+}): Promise<{ events: EventWithDetails[]; total: number }> {
+  const supabase = await createClient();
+  const page = params.page || 1;
+  const pageSize = params.pageSize || 20;
+  const offset = (page - 1) * pageSize;
+
+  let query = supabase
+    .from('events')
+    .select('*, subscribers!inner(id, full_name, master_id, phone, email)', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(offset, offset + pageSize - 1);
+
+  if (params.search && params.search.trim()) {
+    const s = params.search.trim();
+    
+    // First, find any subscribers that match the search term
+    const adminSupabase = createAdminClient();
+    const { data: matchingSubs } = await adminSupabase
+      .from('subscribers')
+      .select('id')
+      .or(`full_name.ilike.%${s}%,master_id.ilike.%${s}%`);
+      
+    const matchingSubscriberIds = (matchingSubs || []).map(sub => sub.id);
+
+    // Build the OR parts for the events table
+    const orParts: string[] = [
+      `event_name.ilike.%${s}%`,
+      `referred_by.ilike.%${s}%`,
+      `form_number.ilike.%${s}%`
+    ];
+
+    if (matchingSubscriberIds.length > 0) {
+      orParts.push(`subscriber_id.in.(${matchingSubscriberIds.join(',')})`);
+    }
+
+    query = query.or(orParts.join(','));
+  }
+
+  const { data, count, error } = await query;
+
+  if (error) {
+    console.error('Error fetching events for list:', error);
+    return { events: [], total: 0 };
+  }
+
+  return {
+    events: (data || []) as EventWithDetails[],
+    total: count || 0,
+  };
+}
+
 // =============================================
 // Event CRUD
 // =============================================
@@ -233,6 +297,8 @@ export async function createEvent(data: {
   recurring_count?: number;
   recurring_indefinite?: boolean;
   notes?: string;
+  referred_by?: string;
+  form_number?: string;
 }): Promise<{ success: boolean; message: string }> {
   const canCreate = await hasPermission('CREATE_EVENT');
   if (!canCreate) {
@@ -257,6 +323,8 @@ export async function createEvent(data: {
         recurring_count: data.recurring_count || null,
         recurring_indefinite: data.recurring_indefinite || false,
         notes: data.notes || null,
+        referred_by: data.referred_by || null,
+        form_number: data.form_number || null,
         created_by: user.id,
       })
       .select('id')
@@ -279,6 +347,8 @@ export async function createEvent(data: {
       recurring_count: data.recurring_count,
       recurring_indefinite: data.recurring_indefinite,
       notes: data.notes,
+      referred_by: data.referred_by,
+      form_number: data.form_number,
     });
 
     revalidatePath('/events');
@@ -302,6 +372,8 @@ export async function updateEvent(
     recurring_count?: number | null;
     recurring_indefinite?: boolean;
     notes?: string;
+    referred_by?: string;
+    form_number?: string;
   }
 ): Promise<{ success: boolean; message: string }> {
   const canUpdate = await hasPermission('UPDATE_EVENT');
@@ -327,6 +399,8 @@ export async function updateEvent(
     if (data.recurring_count !== undefined) updates.recurring_count = data.recurring_count;
     if (data.recurring_indefinite !== undefined) updates.recurring_indefinite = data.recurring_indefinite;
     if (data.notes !== undefined) updates.notes = data.notes || null;
+    if (data.referred_by !== undefined) updates.referred_by = data.referred_by || null;
+    if (data.form_number !== undefined) updates.form_number = data.form_number || null;
 
     const { error } = await adminSupabase
       .from('events')
@@ -346,6 +420,8 @@ export async function updateEvent(
         recurring_count: 'Recurring Count',
         recurring_indefinite: 'Recurring Indefinite',
         notes: 'Notes',
+        referred_by: 'Referred By',
+        form_number: 'Form Number',
       };
 
       for (const [key, label] of Object.entries(fieldLabels)) {

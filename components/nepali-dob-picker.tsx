@@ -15,6 +15,8 @@ interface NepaliDobPickerProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  minYear?: number;
+  maxYear?: number;
 }
 
 const NEPALI_MONTHS = [
@@ -22,9 +24,8 @@ const NEPALI_MONTHS = [
   'Kartik', 'Mangsir', 'Poush', 'Magh', 'Falgun', 'Chaitra',
 ];
 
-const MIN_YEAR = 2070;
-const MAX_YEAR = 2100;
-const YEARS = Array.from({ length: MAX_YEAR - MIN_YEAR + 1 }, (_, i) => MIN_YEAR + i);
+const DEFAULT_MIN_YEAR = 2070;
+const DEFAULT_MAX_YEAR = 2100;
 
 function getDaysInNepaliMonth(year: number, month: number): number {
   try {
@@ -57,7 +58,10 @@ export function NepaliDobPicker({
   onChange,
   placeholder = 'Select date of birth',
   className,
+  minYear = DEFAULT_MIN_YEAR,
+  maxYear = DEFAULT_MAX_YEAR,
 }: NepaliDobPickerProps) {
+  const YEARS = Array.from({ length: maxYear - minYear + 1 }, (_, i) => minYear + i);
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<PickerStep>('year');
   const [selectedYear, setSelectedYear] = useState<number | null>(null);

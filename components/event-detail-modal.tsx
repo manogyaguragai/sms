@@ -158,6 +158,28 @@ export function EventDetailModal({
             </div>
           )}
 
+          {/* Referred By */}
+          {(fullEvent?.referred_by || event.referred_by) && (
+            <div className="flex items-start gap-3">
+              <User className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs text-slate-400 mb-0.5">Referred By</p>
+                <p className="text-sm font-medium text-slate-900">{fullEvent?.referred_by || event.referred_by}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Form Number */}
+          {(fullEvent?.form_number || event.form_number) && (
+            <div className="flex items-start gap-3">
+              <FileText className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs text-slate-400 mb-0.5">Form Number</p>
+                <p className="text-sm font-medium text-slate-900">{fullEvent?.form_number || event.form_number}</p>
+              </div>
+            </div>
+          )}
+
           {/* Notes */}
           {event.notes && (
             <div className="flex items-start gap-3">

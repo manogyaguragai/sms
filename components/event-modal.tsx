@@ -55,6 +55,8 @@ export function EventModal({ open, onClose, editEvent }: EventModalProps) {
   const [recurringFrequency, setRecurringFrequency] = useState<string>('none');
   const [recurringCount, setRecurringCount] = useState<string>('');
   const [recurringIndefinite, setRecurringIndefinite] = useState(false);
+  const [referredBy, setReferredBy] = useState('');
+  const [formNumber, setFormNumber] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -77,6 +79,8 @@ export function EventModal({ open, onClose, editEvent }: EventModalProps) {
         setRecurringFrequency(editEvent.recurring_frequency || 'none');
         setRecurringCount(editEvent.recurring_count ? String(editEvent.recurring_count) : '');
         setRecurringIndefinite(editEvent.recurring_indefinite);
+        setReferredBy(editEvent.referred_by || '');
+        setFormNumber(editEvent.form_number || '');
         setNotes(editEvent.notes || '');
         setSelectedSubscriber({
           id: editEvent.subscribers.id,
@@ -159,6 +163,8 @@ export function EventModal({ open, onClose, editEvent }: EventModalProps) {
           : undefined,
         recurring_indefinite: recurringFrequency !== 'none' ? recurringIndefinite : undefined,
         notes: notes || undefined,
+        referred_by: referredBy || undefined,
+        form_number: formNumber || undefined,
       };
 
       let result;
@@ -171,6 +177,8 @@ export function EventModal({ open, onClose, editEvent }: EventModalProps) {
           recurring_count: payload.recurring_count || null,
           recurring_indefinite: payload.recurring_indefinite || false,
           notes: payload.notes || '',
+          referred_by: payload.referred_by || '',
+          form_number: payload.form_number || '',
         });
       } else {
         result = await createEvent(payload);
@@ -197,6 +205,8 @@ export function EventModal({ open, onClose, editEvent }: EventModalProps) {
     setRecurringFrequency('none');
     setRecurringCount('');
     setRecurringIndefinite(false);
+    setReferredBy('');
+    setFormNumber('');
     setNotes('');
     setSubscriberSearch('');
     setSubscriberResults([]);
@@ -368,6 +378,28 @@ export function EventModal({ open, onClose, editEvent }: EventModalProps) {
                 )}
               </div>
             )}
+          </div>
+
+          {/* Referred By & Form Number Row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700">Referred By</Label>
+              <Input
+                value={referredBy}
+                onChange={(e) => setReferredBy(e.target.value)}
+                placeholder="Referrer's name"
+                className="bg-white border-gray-200 h-10"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700">Form Number</Label>
+              <Input
+                value={formNumber}
+                onChange={(e) => setFormNumber(e.target.value)}
+                placeholder="e.g., F-001"
+                className="bg-white border-gray-200 h-10"
+              />
+            </div>
           </div>
 
           {/* Notes */}
