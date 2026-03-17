@@ -8,7 +8,7 @@ import { deleteSubscriber } from '@/app/actions/subscriber';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -43,6 +43,8 @@ import {
   User,
   IdCard,
   PhoneCall,
+  Languages,
+  Cake,
 } from 'lucide-react';
 import { differenceInDays, startOfDay } from 'date-fns';
 import NepaliDate from 'nepali-date-converter';
@@ -149,6 +151,7 @@ export function SubscriberProfile({ subscriber, payments, canCreateFollowup }: S
   const [showStatementDialog, setShowStatementDialog] = useState(false);
   const [showIdCardModal, setShowIdCardModal] = useState(false);
   const [showFollowupsModal, setShowFollowupsModal] = useState(false);
+  const [showProfilePicture, setShowProfilePicture] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [newEndDate, setNewEndDate] = useState(() => toNepaliDateString(subscriber.subscription_end_date));
   const [updatingDate, setUpdatingDate] = useState(false);
@@ -250,7 +253,17 @@ export function SubscriberProfile({ subscriber, payments, canCreateFollowup }: S
         <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
           <div className="flex items-center gap-4">
             <div className="relative">
-              <Avatar className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg shadow-blue-600/25">
+              <Avatar
+                className={`w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg shadow-blue-600/25 ${subscriber.profile_picture_url ? 'cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all' : ''}`}
+                onClick={() => { if (subscriber.profile_picture_url) setShowProfilePicture(true); }}
+              >
+                {subscriber.profile_picture_url && (
+                  <AvatarImage
+                    src={subscriber.profile_picture_url}
+                    alt={subscriber.full_name}
+                    className="rounded-xl object-cover"
+                  />
+                )}
                 <AvatarFallback className="bg-transparent text-white text-lg font-bold rounded-xl">
                   {subscriber.full_name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
                 </AvatarFallback>
@@ -341,6 +354,45 @@ export function SubscriberProfile({ subscriber, payments, canCreateFollowup }: S
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">At a Glance</h3>
             </div>
             <div className="p-4 space-y-0 divide-y divide-slate-50">
+              {/* Nepali Name */}
+              {subscriber.nepali_name && (
+                <div className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center">
+                      <Languages className="w-3.5 h-3.5 text-violet-500" />
+                    </div>
+                    <span className="text-xs font-medium text-slate-400">Nepali Name</span>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-800 max-w-[140px] truncate text-right">
+                    {subscriber.nepali_name}
+                  </span>
+                </div>
+              )}
+
+              {/* Date of Birth */}
+              {subscriber.date_of_birth_bs && (
+                <div className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-rose-50 flex items-center justify-center">
+                      <Cake className="w-3.5 h-3.5 text-rose-500" />
+                    </div>
+                    <span className="text-xs font-medium text-slate-400">Date of Birth</span>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-800">
+                    {(() => {
+                      const parts = subscriber.date_of_birth_bs.split('-');
+                      if (parts.length === 3) {
+                        const MONTHS = ['Baisakh','Jeth','Ashadh','Shrawan','Bhadra','Ashwin','Kartik','Mangsir','Poush','Magh','Falgun','Chaitra'];
+                        const m = parseInt(parts[1], 10) - 1;
+                        const d = parseInt(parts[2], 10);
+                        return `${MONTHS[m] || ''} ${d}, ${parts[0]}`;
+                      }
+                      return subscriber.date_of_birth_bs;
+                    })()}
+                  </span>
+                </div>
+              )}
+
               <div className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
                 <div className="flex items-center gap-2.5">
                   <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
@@ -702,6 +754,24 @@ export function SubscriberProfile({ subscriber, payments, canCreateFollowup }: S
         </div>
       </div>
 
+      {/* Profile Picture Lightbox */}
+      {subscriber.profile_picture_url && (
+        <Dialog open={showProfilePicture} onOpenChange={setShowProfilePicture}>
+          <DialogContent className="bg-black/95 border-none max-w-lg p-2 sm:p-4">
+            <DialogHeader className="sr-only">
+              <DialogTitle>{subscriber.full_name}&apos;s Profile Picture</DialogTitle>
+            </DialogHeader>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={subscriber.profile_picture_url}
+              alt={subscriber.full_name}
+              className="w-full h-auto rounded-xl object-contain max-h-[75vh]"
+            />
+            <p className="text-center text-sm text-white/70 mt-2 font-medium">{subscriber.full_name}</p>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* ── Modals ── */}
       <PaymentModal subscriber={subscriber} open={showPaymentModal} onClose={() => setShowPaymentModal(false)} />
       <SubscriberStatement subscriber={subscriber} open={showStatementDialog} onClose={() => setShowStatementDialog(false)} />
@@ -726,7 +796,7 @@ export function SubscriberProfile({ subscriber, payments, canCreateFollowup }: S
             <DialogTitle className="text-slate-900">Edit Subscriber</DialogTitle>
             <DialogDescription className="text-slate-500">Update the subscriber information below.</DialogDescription>
           </DialogHeader>
-          <SubscriberForm subscriber={subscriber} mode="edit" />
+          <SubscriberForm subscriber={subscriber} mode="edit" hideHeader />
         </DialogContent>
       </Dialog>
 

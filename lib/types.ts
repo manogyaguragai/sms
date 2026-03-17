@@ -78,6 +78,8 @@ export interface Subscriber {
   referred_by: string | null;
   nepali_name: string | null;
   nepali_phone: string | null;
+  profile_picture_url: string | null;
+  date_of_birth_bs: string | null;
 }
 
 export interface Payment {
@@ -108,6 +110,9 @@ export interface SubscriberFormData {
   frequency: string[];
   reminder_days_before: number;
   referred_by?: string;
+  nepali_name?: string;
+  date_of_birth_bs?: string;
+  profile_picture_url?: string;
 }
 
 export interface PaymentFormData {
