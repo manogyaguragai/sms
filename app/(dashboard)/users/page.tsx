@@ -21,7 +21,7 @@ export default async function UsersPage() {
     const users = await getManageableUsers();
 
     const creatableRoles: UserRole[] = profile.role === 'super_admin'
-        ? ['admin', 'staff', 'view_only']
+        ? ['super_admin', 'admin', 'staff', 'view_only']
         : ['staff', 'view_only'];
 
     // Enrich user profiles with emails from Supabase Auth (for edit functionality)

@@ -227,7 +227,7 @@ export default function UsersClient({ profile, role, initialUsers, creatableRole
   };
 
   // Roles that a super admin can assign when editing
-  const editableRoles: UserRole[] = ['admin', 'staff', 'view_only'];
+  const editableRoles: UserRole[] = ['super_admin', 'admin', 'staff', 'view_only'];
 
   return (
     <div className="p-6 lg:p-8 space-y-6">
