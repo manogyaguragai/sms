@@ -22,7 +22,7 @@ const NEPALI_MONTHS = [
   'Kartik', 'Mangsir', 'Poush', 'Magh', 'Falgun', 'Chaitra',
 ];
 
-const MIN_YEAR = 2000;
+const MIN_YEAR = 2070;
 const MAX_YEAR = 2100;
 const YEARS = Array.from({ length: MAX_YEAR - MIN_YEAR + 1 }, (_, i) => MIN_YEAR + i);
 
@@ -94,18 +94,20 @@ export function NepaliDobPicker({
   // Scroll to the current BS year when opening year picker
   useEffect(() => {
     if (open && step === 'year' && yearListRef.current) {
-      const currentYear = selectedYear ?? getCurrentBSYear();
-      // Use rAF + small delay to ensure the DOM is fully painted
-      const raf = requestAnimationFrame(() => {
-        setTimeout(() => {
-          if (!yearListRef.current) return;
-          const activeBtn = yearListRef.current.querySelector('[data-active="true"]') as HTMLElement;
-          if (activeBtn) {
-            activeBtn.scrollIntoView({ block: 'center', behavior: 'instant' });
-          }
-        }, 50);
-      });
-      return () => cancelAnimationFrame(raf);
+      // Use multiple rAF + timeout to ensure DOM is fully painted
+      // (Radix popover inside a dialog can delay rendering)
+      const timeoutId = setTimeout(() => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (!yearListRef.current) return;
+            const activeBtn = yearListRef.current.querySelector('[data-active="true"]') as HTMLElement;
+            if (activeBtn) {
+              activeBtn.scrollIntoView({ block: 'center', behavior: 'auto' });
+            }
+          });
+        });
+      }, 100);
+      return () => clearTimeout(timeoutId);
     }
   }, [open, step]);
 
@@ -148,7 +150,7 @@ export function NepaliDobPicker({
           <span className="truncate">{displayValue}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-0 bg-white border-gray-200 shadow-lg" align="start">
+      <PopoverContent className="w-72 p-0 bg-white border-gray-200 shadow-lg" align="start" side="bottom" sideOffset={4}>
         {/* Header */}
         <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 bg-gray-50">
           {step !== 'year' && (
@@ -173,8 +175,8 @@ export function NepaliDobPicker({
         {step === 'year' && (
           <div
             ref={yearListRef}
-            className="overflow-y-auto p-3"
-            style={{ maxHeight: 260 }}
+            className="p-3"
+            style={{ maxHeight: 260, overflowY: 'auto' }}
           >
             <div className="grid grid-cols-4 gap-1.5">
               {YEARS.map((year) => {

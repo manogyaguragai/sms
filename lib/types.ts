@@ -48,13 +48,16 @@ export type ActionType =
   | 'CRON_TRIGGERED'
   | 'FOLLOWUP_CREATED'
   | 'FOLLOWUP_UPDATED'
-  | 'FOLLOWUP_DELETED';
+  | 'FOLLOWUP_DELETED'
+  | 'EVENT_CREATED'
+  | 'EVENT_UPDATED'
+  | 'EVENT_DELETED';
 
 // Action type categories for UI color coding
 export const ACTION_CATEGORIES = {
-  CREATE: ['USER_CREATED', 'SUBSCRIBER_CREATED', 'PAYMENT_CREATED'],
-  UPDATE: ['USER_UPDATED', 'SUBSCRIBER_UPDATED', 'PAYMENT_UPDATED'],
-  DELETE: ['USER_DELETED', 'SUBSCRIBER_DELETED', 'PAYMENT_DELETED'],
+  CREATE: ['USER_CREATED', 'SUBSCRIBER_CREATED', 'PAYMENT_CREATED', 'EVENT_CREATED'],
+  UPDATE: ['USER_UPDATED', 'SUBSCRIBER_UPDATED', 'PAYMENT_UPDATED', 'EVENT_UPDATED'],
+  DELETE: ['USER_DELETED', 'SUBSCRIBER_DELETED', 'PAYMENT_DELETED', 'EVENT_DELETED'],
   COMMUNICATION: ['EMAIL_SENT', 'SMS_SENT'],
   SYSTEM: ['USER_LOGIN', 'USER_LOGOUT', 'DATA_EXPORTED', 'SETTINGS_UPDATED', 'CRON_TRIGGERED'],
 } as const;
@@ -147,6 +150,45 @@ export interface FollowupWithDetails extends Followup {
   };
   // made_by profile names resolved at query time
   made_by_names?: string[];
+}
+
+// Event types
+export interface Event {
+  id: string;
+  subscriber_id: string;
+  event_name: string;
+  event_date: string; // Nepali BS date "YYYY-MM-DD"
+  event_time: string | null;
+  recurring_frequency: 'daily' | 'weekly' | 'monthly' | 'yearly' | null;
+  recurring_count: number | null;
+  recurring_indefinite: boolean;
+  notes: string | null;
+  created_at: string;
+  created_by: string;
+}
+
+export interface EventWithDetails extends Event {
+  subscribers: {
+    id: string;
+    full_name: string;
+    master_id: string;
+    phone: string | null;
+    email: string | null;
+  };
+}
+
+// Calendar event used for rendering (includes birthdays and expanded recurring)
+export interface CalendarEvent {
+  id: string;
+  event_name: string;
+  event_date: string; // "YYYY-MM-DD" BS
+  event_time: string | null;
+  subscriber_name: string;
+  subscriber_id: string;
+  is_birthday: boolean;
+  is_recurring: boolean;
+  source_event_id?: string; // original event id for recurring instances
+  notes: string | null;
 }
 
 // Dashboard stats
