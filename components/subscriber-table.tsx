@@ -51,6 +51,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { MoreHorizontal, Eye, Trash2, Search, Loader2, AlertCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, X } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format, differenceInDays, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
 import { formatNepaliDate } from '@/lib/nepali-date';
@@ -385,7 +386,16 @@ export function SubscriberTable({
                 className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm active:bg-gray-50 transition-colors cursor-pointer"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <Avatar className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-600 shrink-0">
+                      {subscriber.profile_picture_url && (
+                        <AvatarImage src={subscriber.profile_picture_url} alt={subscriber.full_name} className="object-cover" />
+                      )}
+                      <AvatarFallback className="bg-transparent text-white text-xs font-bold">
+                        {subscriber.full_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-sm font-mono font-extrabold text-blue-700 bg-blue-100 border border-blue-300 px-2 py-0.5 rounded-md shadow-sm">{subscriber.master_id}</span>
                       <h3 className="font-medium text-gray-900 truncate">{subscriber.full_name}</h3>
@@ -394,6 +404,7 @@ export function SubscriberTable({
                       )}
                     </div>
                     <p className="text-sm text-gray-500 truncate">{subscriber.email || subscriber.phone || 'No contact'}</p>
+                    </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     {getStatusBadge(subscriber.status)}
@@ -516,6 +527,14 @@ export function SubscriberTable({
                     </TableCell>
                   <TableCell className="font-medium text-gray-900">
                     <div className="flex items-center gap-2">
+                      <Avatar className="w-7 h-7 bg-gradient-to-br from-blue-500 to-indigo-600 shrink-0">
+                        {subscriber.profile_picture_url && (
+                          <AvatarImage src={subscriber.profile_picture_url} alt={subscriber.full_name} className="object-cover" />
+                        )}
+                        <AvatarFallback className="bg-transparent text-white text-[10px] font-bold">
+                          {subscriber.full_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        </AvatarFallback>
+                      </Avatar>
                       {subscriber.full_name}
                       {subscriber.status === 'inactive' && subscriber.status_notes && (
                         <TooltipProvider>

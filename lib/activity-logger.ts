@@ -284,3 +284,147 @@ export async function logUserUpdated(
   });
 }
 
+/**
+ * Log followup creation
+ */
+export async function logFollowupCreated(
+  followupId: string,
+  subscriberName: string,
+  details: {
+    followup_date: string;
+    made_by_names: string[];
+    phone_number?: string;
+    followup_time?: string;
+    notes?: string;
+  }
+): Promise<void> {
+  await logActivity({
+    actionType: 'FOLLOWUP_CREATED',
+    description: `Created followup for ${subscriberName}`,
+    targetTable: 'followups',
+    targetId: followupId,
+    metadata: {
+      subscriber_name: subscriberName,
+      followup_date: details.followup_date,
+      made_by: details.made_by_names,
+      phone_number: details.phone_number,
+      followup_time: details.followup_time,
+      notes: details.notes,
+    },
+  });
+}
+
+/**
+ * Log followup update
+ */
+export async function logFollowupUpdated(
+  followupId: string,
+  subscriberName: string,
+  changes: Record<string, { from: unknown; to: unknown }>
+): Promise<void> {
+  await logActivity({
+    actionType: 'FOLLOWUP_UPDATED',
+    description: `Updated followup for ${subscriberName}`,
+    targetTable: 'followups',
+    targetId: followupId,
+    metadata: {
+      subscriber_name: subscriberName,
+      changes,
+    },
+  });
+}
+
+/**
+ * Log followup deletion
+ */
+export async function logFollowupDeleted(
+  followupId: string,
+  subscriberName: string,
+  details: {
+    followup_date: string;
+    made_by_names?: string[];
+  }
+): Promise<void> {
+  await logActivity({
+    actionType: 'FOLLOWUP_DELETED',
+    description: `Deleted followup for ${subscriberName}`,
+    targetTable: 'followups',
+    targetId: followupId,
+    metadata: {
+      subscriber_name: subscriberName,
+      followup_date: details.followup_date,
+      made_by: details.made_by_names,
+    },
+  });
+}
+
+/**
+ * Log event creation
+ */
+export async function logEventCreated(
+  eventId: string,
+  subscriberName: string,
+  details: {
+    event_name: string;
+    event_date: string;
+    event_time?: string;
+    recurring_frequency?: string;
+    recurring_count?: number;
+    recurring_indefinite?: boolean;
+    notes?: string;
+  }
+): Promise<void> {
+  await logActivity({
+    actionType: 'EVENT_CREATED',
+    description: `Created event "${details.event_name}" for ${subscriberName}`,
+    targetTable: 'events',
+    targetId: eventId,
+    metadata: {
+      subscriber_name: subscriberName,
+      ...details,
+    },
+  });
+}
+
+/**
+ * Log event update
+ */
+export async function logEventUpdated(
+  eventId: string,
+  subscriberName: string,
+  changes: Record<string, { from: unknown; to: unknown }>
+): Promise<void> {
+  await logActivity({
+    actionType: 'EVENT_UPDATED',
+    description: `Updated event for ${subscriberName}`,
+    targetTable: 'events',
+    targetId: eventId,
+    metadata: {
+      subscriber_name: subscriberName,
+      changes,
+    },
+  });
+}
+
+/**
+ * Log event deletion
+ */
+export async function logEventDeleted(
+  eventId: string,
+  subscriberName: string,
+  details: {
+    event_name: string;
+    event_date: string;
+  }
+): Promise<void> {
+  await logActivity({
+    actionType: 'EVENT_DELETED',
+    description: `Deleted event "${details.event_name}" for ${subscriberName}`,
+    targetTable: 'events',
+    targetId: eventId,
+    metadata: {
+      subscriber_name: subscriberName,
+      ...details,
+    },
+  });
+}

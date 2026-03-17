@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRole } from '@/lib/hooks/use-role';
@@ -8,7 +8,7 @@ import { deleteSubscriber } from '@/app/actions/subscriber';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -43,6 +43,8 @@ import {
   User,
   IdCard,
   PhoneCall,
+  Languages,
+  Cake,
 } from 'lucide-react';
 import { differenceInDays, startOfDay } from 'date-fns';
 import NepaliDate from 'nepali-date-converter';
@@ -139,6 +141,7 @@ export function SubscriberProfile({ subscriber, payments, canCreateFollowup }: S
   const canDelete = hasPermission('DELETE_SUBSCRIBER');
   const canCreatePayment = hasPermission('CREATE_PAYMENT');
   const canEdit = hasPermission('UPDATE_SUBSCRIBER');
+  const [mounted, setMounted] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -148,6 +151,7 @@ export function SubscriberProfile({ subscriber, payments, canCreateFollowup }: S
   const [showStatementDialog, setShowStatementDialog] = useState(false);
   const [showIdCardModal, setShowIdCardModal] = useState(false);
   const [showFollowupsModal, setShowFollowupsModal] = useState(false);
+  const [showProfilePicture, setShowProfilePicture] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [newEndDate, setNewEndDate] = useState(() => toNepaliDateString(subscriber.subscription_end_date));
   const [updatingDate, setUpdatingDate] = useState(false);
@@ -162,6 +166,10 @@ export function SubscriberProfile({ subscriber, payments, canCreateFollowup }: S
   const endDates: Record<string, string> = subscriber.subscription_end_dates || {};
 
   const lastPaymentDate = payments.length > 0 ? new Date(payments[0].payment_date) : null;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -245,7 +253,17 @@ export function SubscriberProfile({ subscriber, payments, canCreateFollowup }: S
         <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
           <div className="flex items-center gap-4">
             <div className="relative">
-              <Avatar className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg shadow-blue-600/25">
+              <Avatar
+                className={`w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg shadow-blue-600/25 ${subscriber.profile_picture_url ? 'cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all' : ''}`}
+                onClick={() => { if (subscriber.profile_picture_url) setShowProfilePicture(true); }}
+              >
+                {subscriber.profile_picture_url && (
+                  <AvatarImage
+                    src={subscriber.profile_picture_url}
+                    alt={subscriber.full_name}
+                    className="rounded-xl object-cover"
+                  />
+                )}
                 <AvatarFallback className="bg-transparent text-white text-lg font-bold rounded-xl">
                   {subscriber.full_name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
                 </AvatarFallback>
@@ -336,6 +354,45 @@ export function SubscriberProfile({ subscriber, payments, canCreateFollowup }: S
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">At a Glance</h3>
             </div>
             <div className="p-4 space-y-0 divide-y divide-slate-50">
+              {/* Nepali Name */}
+              {subscriber.nepali_name && (
+                <div className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center">
+                      <Languages className="w-3.5 h-3.5 text-violet-500" />
+                    </div>
+                    <span className="text-xs font-medium text-slate-400">Nepali Name</span>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-800 max-w-[140px] truncate text-right">
+                    {subscriber.nepali_name}
+                  </span>
+                </div>
+              )}
+
+              {/* Date of Birth */}
+              {subscriber.date_of_birth_bs && (
+                <div className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-rose-50 flex items-center justify-center">
+                      <Cake className="w-3.5 h-3.5 text-rose-500" />
+                    </div>
+                    <span className="text-xs font-medium text-slate-400">Date of Birth</span>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-800">
+                    {(() => {
+                      const parts = subscriber.date_of_birth_bs.split('-');
+                      if (parts.length === 3) {
+                        const MONTHS = ['Baisakh','Jeth','Ashadh','Shrawan','Bhadra','Ashwin','Kartik','Mangsir','Poush','Magh','Falgun','Chaitra'];
+                        const m = parseInt(parts[1], 10) - 1;
+                        const d = parseInt(parts[2], 10);
+                        return `${MONTHS[m] || ''} ${d}, ${parts[0]}`;
+                      }
+                      return subscriber.date_of_birth_bs;
+                    })()}
+                  </span>
+                </div>
+              )}
+
               <div className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
                 <div className="flex items-center gap-2.5">
                   <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
@@ -564,132 +621,156 @@ export function SubscriberProfile({ subscriber, payments, canCreateFollowup }: S
               Payment History
             </h2>
 
-            <Tabs defaultValue={frequencies[0] || '_other'} className="w-full">
-              <TabsList className="bg-slate-100/80 p-1 rounded-xl h-auto w-full justify-start overflow-x-auto flex-nowrap border border-slate-200/50">
-                {frequencies.map(f => (
-                  <TabsTrigger
-                    key={f}
-                    value={f}
-                    className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-400 font-medium whitespace-nowrap px-4 py-2 text-sm transition-all"
-                  >
-                    {getFreqLabel(f)}
-                  </TabsTrigger>
-                ))}
-                {hasUntagged && (
-                  <TabsTrigger
-                    value="_other"
-                    className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-400 font-medium whitespace-nowrap px-4 py-2 text-sm transition-all"
-                  >
-                    Other
-                  </TabsTrigger>
-                )}
-              </TabsList>
+            {!mounted ? (
+              <div className="h-[200px] flex items-center justify-center bg-slate-50/50 rounded-2xl border border-slate-100 animate-pulse">
+                <Loader2 className="w-6 h-6 text-slate-300 animate-spin" />
+              </div>
+            ) : (
+              <Tabs defaultValue={frequencies[0] || '_other'} className="w-full">
+                <TabsList className="bg-slate-100/80 p-1 rounded-xl h-auto w-full justify-start overflow-x-auto flex-nowrap border border-slate-200/50">
+                  {frequencies.map(f => (
+                    <TabsTrigger
+                      key={f}
+                      value={f}
+                      className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-400 font-medium whitespace-nowrap px-4 py-2 text-sm transition-all"
+                    >
+                      {getFreqLabel(f)}
+                    </TabsTrigger>
+                  ))}
+                  {hasUntagged && (
+                    <TabsTrigger
+                      value="_other"
+                      className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-400 font-medium whitespace-nowrap px-4 py-2 text-sm transition-all"
+                    >
+                      Other
+                    </TabsTrigger>
+                  )}
+                </TabsList>
 
-              {[...frequencies, ...(hasUntagged ? ['_other'] : [])].map(freqKey => {
-                const colPayments = freqKey === '_other' ? untaggedPayments : payments.filter(p => p.payment_for === freqKey);
-                const colPage = currentPages[freqKey] || 1;
-                const colTotalPages = Math.ceil(colPayments.length / recordsPerPage);
-                const colStart = (colPage - 1) * recordsPerPage;
-                const colEnd = colStart + recordsPerPage;
-                const colPaginated = colPayments.slice(colStart, colEnd);
+                {[...frequencies, ...(hasUntagged ? ['_other'] : [])].map(freqKey => {
+                  const colPayments = freqKey === '_other' ? untaggedPayments : payments.filter(p => p.payment_for === freqKey);
+                  const colPage = currentPages[freqKey] || 1;
+                  const colTotalPages = Math.ceil(colPayments.length / recordsPerPage);
+                  const colStart = (colPage - 1) * recordsPerPage;
+                  const colEnd = colStart + recordsPerPage;
+                  const colPaginated = colPayments.slice(colStart, colEnd);
 
-                return (
-                  <TabsContent key={freqKey} value={freqKey} className="mt-3 focus-visible:outline-none">
-                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-                      {colPayments.length === 0 ? (
-                        <div className="text-center py-16 px-4">
-                          <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center mx-auto mb-3">
-                            <Receipt className="w-6 h-6 text-slate-200" />
+                  return (
+                    <TabsContent key={freqKey} value={freqKey} className="mt-3 focus-visible:outline-none">
+                      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                        {colPayments.length === 0 ? (
+                          <div className="text-center py-16 px-4">
+                            <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center mx-auto mb-3">
+                              <Receipt className="w-6 h-6 text-slate-200" />
+                            </div>
+                            <p className="text-sm font-medium text-slate-300">No payment records</p>
                           </div>
-                          <p className="text-sm font-medium text-slate-300">No payment records</p>
-                        </div>
-                      ) : (
-                          <div>
-                            {/* Rows */}
-                            <div className="divide-y divide-slate-100/80">
-                              {colPaginated.map((payment, i) => (
-                                <div
-                                  key={payment.id}
-                                  onClick={() => {
-                                    setSelectedPayment(payment);
-                                    setShowPaymentDetailModal(true);
-                                  }}
-                                  className="flex items-center justify-between px-5 py-4 hover:bg-blue-50/30 transition-all duration-200 cursor-pointer group"
-                                >
-                                  <div className="flex items-center gap-3.5 min-w-0">
-                                    <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0 group-hover:bg-blue-100 transition-colors">
-                                      <DollarSign className="w-4 h-4" />
-                                    </div>
-                                    <div className="min-w-0">
-                                      <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="text-sm font-bold text-slate-900">
-                                          Rs. {Number(payment.amount_paid).toLocaleString('en-NP')}
-                                        </span>
-                                        {payment.receipt_number && (
-                                          <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-md">
-                                            #{payment.receipt_number}
+                        ) : (
+                            <div>
+                              {/* Rows */}
+                              <div className="divide-y divide-slate-100/80">
+                                {colPaginated.map((payment, i) => (
+                                  <div
+                                    key={payment.id}
+                                    onClick={() => {
+                                      setSelectedPayment(payment);
+                                      setShowPaymentDetailModal(true);
+                                    }}
+                                    className="flex items-center justify-between px-5 py-4 hover:bg-blue-50/30 transition-all duration-200 cursor-pointer group"
+                                  >
+                                    <div className="flex items-center gap-3.5 min-w-0">
+                                      <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0 group-hover:bg-blue-100 transition-colors">
+                                        <DollarSign className="w-4 h-4" />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="text-sm font-bold text-slate-900">
+                                            Rs. {Number(payment.amount_paid).toLocaleString('en-NP')}
                                           </span>
-                                        )}
-                                        {payment.proof_url && (
-                                          <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
-                                            Proof
-                                          </span>
+                                          {payment.receipt_number && (
+                                            <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-md">
+                                              #{payment.receipt_number}
+                                            </span>
+                                          )}
+                                          {payment.proof_url && (
+                                            <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+                                              Proof
+                                            </span>
+                                          )}
+                                        </div>
+                                        <p className="text-xs text-slate-400 mt-0.5">
+                                          {formatNepaliDateTime(payment.payment_date)}
+                                        </p>
+                                        {payment.notes && payment.notes.includes('Payment for:') && (
+                                          <p className="text-[11px] text-blue-500/70 mt-0.5 truncate max-w-[320px]">
+                                            {payment.notes.match(/Payment for:\s*([^|]+)/)?.[1]?.trim() || ''}
+                                          </p>
                                         )}
                                       </div>
-                                      <p className="text-xs text-slate-400 mt-0.5">
-                                        {formatNepaliDateTime(payment.payment_date)}
-                                      </p>
-                                      {payment.notes && payment.notes.includes('Payment for:') && (
-                                        <p className="text-[11px] text-blue-500/70 mt-0.5 truncate max-w-[320px]">
-                                          {payment.notes.match(/Payment for:\s*([^|]+)/)?.[1]?.trim() || ''}
-                                        </p>
-                                      )}
                                     </div>
+                                    <ChevronRight className="w-4 h-4 text-slate-200 group-hover:text-slate-400 transition-colors shrink-0" />
                                   </div>
-                                  <ChevronRight className="w-4 h-4 text-slate-200 group-hover:text-slate-400 transition-colors shrink-0" />
-                                </div>
-                              ))}
+                                ))}
+                              </div>
+                            </div>
+                        )}
+
+                        {/* Pagination */}
+                        {colTotalPages > 1 && (
+                          <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100/80 bg-slate-50/30">
+                            <p className="text-xs text-slate-400 tabular-nums">
+                              {colStart + 1}–{Math.min(colEnd, colPayments.length)} of {colPayments.length}
+                            </p>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setCurrentPages(prev => ({ ...prev, [freqKey]: Math.max(1, colPage - 1) }))}
+                                disabled={colPage === 1}
+                                className="h-7 w-7 p-0 text-slate-400 hover:text-slate-600"
+                              >
+                                <ChevronLeft className="w-3.5 h-3.5" />
+                              </Button>
+                              <span className="text-xs text-slate-400 px-1.5 tabular-nums font-medium">{colPage}/{colTotalPages}</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setCurrentPages(prev => ({ ...prev, [freqKey]: Math.min(colTotalPages, colPage + 1) }))}
+                                disabled={colPage === colTotalPages}
+                                className="h-7 w-7 p-0 text-slate-400 hover:text-slate-600"
+                              >
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              </Button>
                             </div>
                           </div>
-                      )}
-
-                      {/* Pagination */}
-                      {colTotalPages > 1 && (
-                        <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100/80 bg-slate-50/30">
-                          <p className="text-xs text-slate-400 tabular-nums">
-                            {colStart + 1}–{Math.min(colEnd, colPayments.length)} of {colPayments.length}
-                          </p>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setCurrentPages(prev => ({ ...prev, [freqKey]: Math.max(1, colPage - 1) }))}
-                              disabled={colPage === 1}
-                              className="h-7 w-7 p-0 text-slate-400 hover:text-slate-600"
-                            >
-                              <ChevronLeft className="w-3.5 h-3.5" />
-                            </Button>
-                            <span className="text-xs text-slate-400 px-1.5 tabular-nums font-medium">{colPage}/{colTotalPages}</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setCurrentPages(prev => ({ ...prev, [freqKey]: Math.min(colTotalPages, colPage + 1) }))}
-                              disabled={colPage === colTotalPages}
-                              className="h-7 w-7 p-0 text-slate-400 hover:text-slate-600"
-                            >
-                              <ChevronRight className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </TabsContent>
-                );
-              })}
-            </Tabs>
+                        )}
+                      </div>
+                    </TabsContent>
+                  );
+                })}
+              </Tabs>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Profile Picture Lightbox */}
+      {subscriber.profile_picture_url && (
+        <Dialog open={showProfilePicture} onOpenChange={setShowProfilePicture}>
+          <DialogContent className="bg-black/95 border-none max-w-lg p-2 sm:p-4">
+            <DialogHeader className="sr-only">
+              <DialogTitle>{subscriber.full_name}&apos;s Profile Picture</DialogTitle>
+            </DialogHeader>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={subscriber.profile_picture_url}
+              alt={subscriber.full_name}
+              className="w-full h-auto rounded-xl object-contain max-h-[75vh]"
+            />
+            <p className="text-center text-sm text-white/70 mt-2 font-medium">{subscriber.full_name}</p>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* ── Modals ── */}
       <PaymentModal subscriber={subscriber} open={showPaymentModal} onClose={() => setShowPaymentModal(false)} />
@@ -715,7 +796,7 @@ export function SubscriberProfile({ subscriber, payments, canCreateFollowup }: S
             <DialogTitle className="text-slate-900">Edit Subscriber</DialogTitle>
             <DialogDescription className="text-slate-500">Update the subscriber information below.</DialogDescription>
           </DialogHeader>
-          <SubscriberForm subscriber={subscriber} mode="edit" />
+          <SubscriberForm subscriber={subscriber} mode="edit" hideHeader onSuccess={() => { setShowEditModal(false); router.refresh(); }} />
         </DialogContent>
       </Dialog>
 

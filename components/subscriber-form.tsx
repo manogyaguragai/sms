@@ -8,16 +8,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, User, Mail, Phone, CalendarClock, Bell, UserPlus, Info } from 'lucide-react';
+import { Loader2, User, Mail, Phone, CalendarClock, Bell, UserPlus, Info, Camera, X, Languages, Cake } from 'lucide-react';
 import { toast } from 'sonner';
 import { addMonths, addYears } from 'date-fns';
 import type { Subscriber, SubscriberFormData } from '@/lib/types';
 import { logSubscriberCreation, logSubscriberUpdate } from '@/app/actions/subscriber';
 import { checkPhoneNumberExists, searchSubscribersByName, updateSubscriberFrequencies } from '@/app/actions/subscriber';
+import { uploadProfilePicture } from '@/app/actions/upload';
+import { NepaliDobPicker } from '@/components/nepali-dob-picker';
 
 interface SubscriberFormProps {
   subscriber?: Subscriber;
   mode: 'create' | 'edit';
+  hideHeader?: boolean;
+  onSuccess?: () => void;
 }
 
 type SubscriberSuggestion = {
@@ -36,10 +40,49 @@ const FREQUENCY_OPTIONS = [
   { value: '12_hajar', label: '12 Hajar' },
 ] as const;
 
-export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
+const MAX_IMAGE_SIZE_MB = 20;
+const MAX_DIMENSION = 800;
+const COMPRESS_QUALITY = 0.7;
+
+/** Compress an image client-side: resize to fit MAX_DIMENSION and export as JPEG */
+function compressImage(file: File): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+      // Scale down if larger than MAX_DIMENSION
+      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+        const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { resolve(file); return; }
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) { resolve(file); return; }
+          resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }));
+        },
+        'image/jpeg',
+        COMPRESS_QUALITY
+      );
+    };
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+export function SubscriberForm({ subscriber, mode, hideHeader, onSuccess }: SubscriberFormProps) {
   const router = useRouter();
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [formData, setFormData] = useState<SubscriberFormData>({
     full_name: subscriber?.full_name || '',
     email: subscriber?.email || '',
@@ -47,7 +90,16 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
     frequency: subscriber?.frequency || ['monthly'],
     reminder_days_before: subscriber?.reminder_days_before || 7,
     referred_by: subscriber?.referred_by || '',
+    nepali_name: subscriber?.nepali_name || '',
+    date_of_birth_bs: subscriber?.date_of_birth_bs || '',
+    profile_picture_url: subscriber?.profile_picture_url || '',
   });
+
+  // Profile picture local state
+  const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null);
+  const [profilePicturePreview, setProfilePicturePreview] = useState<string | null>(
+    subscriber?.profile_picture_url || null
+  );
 
   // Autocomplete state
   const [suggestions, setSuggestions] = useState<SubscriberSuggestion[]>([]);
@@ -82,18 +134,13 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
 
   const handleNameChange = (value: string) => {
     setFormData((prev) => ({ ...prev, full_name: value }));
-    // Clear the selected subscriber when user edits the name
     if (selectedSubscriberId) {
       setSelectedSubscriberId(null);
       setExistingFrequencies([]);
     }
 
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
-    debounceTimer.current = setTimeout(() => {
-      searchNames(value);
-    }, 300);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => { searchNames(value); }, 300);
   };
 
   const handleSuggestionClick = (suggestion: SubscriberSuggestion) => {
@@ -119,11 +166,43 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
         return { ...prev, frequency: [...current, freq] };
       } else {
         const filtered = current.filter((f) => f !== freq);
-        // Don't allow empty — at least one must be selected
         if (filtered.length === 0) return prev;
         return { ...prev, frequency: filtered };
       }
     });
+  };
+
+  // Profile picture handler
+  const handleProfilePictureChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      toast.error('Only JPG, JPEG, and PNG images are allowed.');
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
+      toast.error(`Image must be smaller than ${MAX_IMAGE_SIZE_MB}MB.`);
+      return;
+    }
+
+    try {
+      const compressed = await compressImage(file);
+      setProfilePictureFile(compressed);
+      const reader = new FileReader();
+      reader.onloadend = () => setProfilePicturePreview(reader.result as string);
+      reader.readAsDataURL(compressed);
+    } catch {
+      toast.error('Failed to process image. Please try another file.');
+    }
+  };
+
+  const handleRemoveProfilePicture = () => {
+    setProfilePictureFile(null);
+    setProfilePicturePreview(null);
+    setFormData((prev) => ({ ...prev, profile_picture_url: '' }));
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   // Close suggestions when clicking outside
@@ -138,30 +217,21 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
         setShowSuggestions(false);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Cleanup debounce timer
   useEffect(() => {
     return () => {
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
-      }
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
     };
   }, []);
 
-  // Helper: calculate per-frequency end dates
   const calculateEndDates = (frequencies: string[]): Record<string, string> => {
     const now = new Date();
     const endDates: Record<string, string> = {};
     for (const freq of frequencies) {
-      if (freq === 'monthly') {
-        endDates[freq] = addMonths(now, 1).toISOString();
-      } else {
-        endDates[freq] = addYears(now, 1).toISOString();
-      }
+      endDates[freq] = freq === 'monthly' ? addMonths(now, 1).toISOString() : addYears(now, 1).toISOString();
     }
     return endDates;
   };
@@ -177,6 +247,15 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
     setLoading(true);
 
     try {
+      // Upload profile picture if a new one was selected
+      let profilePictureUrl = formData.profile_picture_url || null;
+
+      if (profilePictureFile) {
+        toast.info('Uploading profile picture...');
+        // We need a subscriber ID; for new subscribers we'll upload after insert
+        // Handle this per mode below
+      }
+
       if (mode === 'create' && selectedSubscriberId) {
         // UPDATE existing subscriber — add new frequencies
         const newFrequencies = formData.frequency.filter(
@@ -199,8 +278,9 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
         toast.success(result.message);
         router.push(`/subscribers/${selectedSubscriberId}`);
         router.refresh();
+
       } else if (mode === 'create') {
-      // CREATE new subscriber
+        // CREATE new subscriber
         if (formData.phone) {
           const duplicateCheck = await checkPhoneNumberExists(formData.phone.trim());
           if (duplicateCheck.exists) {
@@ -212,8 +292,8 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
           }
         }
 
-        const endDates: Record<string, string> = {}; // No end dates until payments are recorded
-        const soonestEndDate = new Date().toISOString(); // Placeholder
+        const endDates: Record<string, string> = {};
+        const soonestEndDate = new Date().toISOString();
 
         const { data, error: insertError } = await supabase.from('subscribers').insert({
           full_name: formData.full_name,
@@ -225,9 +305,27 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
           subscription_end_dates: endDates,
           status: 'active',
           referred_by: formData.referred_by || null,
+          nepali_name: formData.nepali_name || null,
+          date_of_birth_bs: formData.date_of_birth_bs || null,
         }).select('id').single();
 
         if (insertError) throw insertError;
+
+        // Upload profile picture now that we have the subscriber ID
+        if (data && profilePictureFile) {
+          const fd = new FormData();
+          fd.append('file', profilePictureFile);
+          fd.append('subscriberId', data.id);
+          const uploadResult = await uploadProfilePicture(fd);
+          if (uploadResult.error) {
+            toast.warning('Subscriber created, but profile picture upload failed.');
+          } else {
+            profilePictureUrl = uploadResult.url ?? null;
+            await supabase.from('subscribers')
+              .update({ profile_picture_url: profilePictureUrl })
+              .eq('id', data.id);
+          }
+        }
 
         if (data) {
           await logSubscriberCreation(data.id, formData.full_name);
@@ -236,12 +334,24 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
         toast.success('Subscriber added successfully!');
         router.push('/subscribers');
         router.refresh();
+
       } else if (subscriber) {
         // EDIT existing subscriber
-        // EDIT - do NOT recalculate or overwrite end dates, only update subscriber info
-        // If name or phone changed, reset Nepali fields so they get re-transliterated
+        if (profilePictureFile) {
+          const fd = new FormData();
+          fd.append('file', profilePictureFile);
+          fd.append('subscriberId', subscriber.id);
+          const uploadResult = await uploadProfilePicture(fd);
+          if (uploadResult.error) {
+            toast.warning('Profile picture upload failed. Other changes will still be saved.');
+          } else {
+            profilePictureUrl = uploadResult.url ?? null;
+          }
+        }
+
         const nameChanged = formData.full_name !== subscriber.full_name;
         const phoneChanged = (formData.phone || null) !== subscriber.phone;
+
         const { error: updateError } = await supabase
           .from('subscribers')
           .update({
@@ -251,23 +361,43 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
             frequency: formData.frequency,
             reminder_days_before: formData.reminder_days_before,
             referred_by: formData.referred_by || null,
-            ...(nameChanged ? { nepali_name: null } : {}),
+            nepali_name: formData.nepali_name || null,
+            date_of_birth_bs: formData.date_of_birth_bs || null,
+            profile_picture_url: profilePictureUrl,
             ...(phoneChanged ? { nepali_phone: null } : {}),
           })
           .eq('id', subscriber.id);
 
         if (updateError) throw updateError;
 
-        await logSubscriberUpdate(subscriber.id, formData.full_name, {
-          full_name: formData.full_name,
-          email: formData.email,
-          phone: formData.phone,
-          frequency: formData.frequency,
-        });
+        // Build a diff of what actually changed for detailed activity logging
+        const changes: Record<string, { from: unknown; to: unknown }> = {};
+        const fieldPairs: [string, unknown, unknown][] = [
+          ['Name', subscriber.full_name, formData.full_name],
+          ['Email', subscriber.email, formData.email || null],
+          ['Phone', subscriber.phone, formData.phone || null],
+          ['Frequency', (subscriber.frequency || []).sort().join(', '), (formData.frequency || []).sort().join(', ')],
+          ['Reminder Days', subscriber.reminder_days_before, formData.reminder_days_before],
+          ['Referred By', subscriber.referred_by, formData.referred_by || null],
+          ['Nepali Name', subscriber.nepali_name, formData.nepali_name || null],
+          ['Date of Birth (BS)', subscriber.date_of_birth_bs, formData.date_of_birth_bs || null],
+          ['Profile Picture', subscriber.profile_picture_url ? 'Yes' : 'No', profilePictureUrl ? 'Yes' : 'No'],
+        ];
+        for (const [label, oldVal, newVal] of fieldPairs) {
+          if (String(oldVal ?? '') !== String(newVal ?? '')) {
+            changes[label] = { from: oldVal, to: newVal };
+          }
+        }
+
+        await logSubscriberUpdate(subscriber.id, formData.full_name, changes);
 
         toast.success('Subscriber updated successfully!');
-        router.push(`/subscribers/${subscriber.id}`);
-        router.refresh();
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          router.push(`/subscribers/${subscriber.id}`);
+          router.refresh();
+        }
       }
     } catch (error) {
       console.error('Error saving subscriber:', error);
@@ -279,6 +409,7 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
 
   return (
     <Card className="bg-white border-gray-200 shadow-sm">
+      {!hideHeader && (
       <CardHeader>
         <CardTitle className="text-gray-900">
           {mode === 'create'
@@ -295,8 +426,66 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
             : 'Update the subscriber information below.'}
         </CardDescription>
       </CardHeader>
+      )}
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Profile Picture */}
+          {!selectedSubscriberId && (
+            <div className="space-y-2">
+              <Label className="text-gray-700 flex items-center gap-2">
+                <Camera className="h-4 w-4 text-gray-400" />
+                Profile Picture
+              </Label>
+              <div className="flex items-center gap-4">
+                {/* Preview */}
+                <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
+                  {profilePicturePreview ? (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={profilePicturePreview}
+                        alt="Profile preview"
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRemoveProfilePicture}
+                        className="absolute top-0.5 right-0.5 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </>
+                  ) : (
+                    <User className="w-8 h-8 text-gray-300" />
+                  )}
+                </div>
+
+                {/* Upload button and info */}
+                <div className="flex flex-col gap-1.5">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".jpg,.jpeg,.png"
+                    onChange={handleProfilePictureChange}
+                    className="hidden"
+                    id="profile_picture_input"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-gray-200 text-gray-600 hover:text-gray-900 hover:border-gray-300 h-8"
+                  >
+                    <Camera className="w-3.5 h-3.5 mr-1.5" />
+                    {profilePicturePreview ? 'Change Photo' : 'Upload Photo'}
+                  </Button>
+                  <p className="text-xs text-gray-400">JPG, JPEG, PNG · Max 20MB</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Full Name with Autocomplete */}
             <div className="space-y-2">
@@ -382,6 +571,27 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
               )}
             </div>
 
+            {/* Nepali Name */}
+            <div className="space-y-2">
+              <Label htmlFor="nepali_name" className="text-gray-700">
+                Nepali Name
+              </Label>
+              <div className="relative">
+                <Languages className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  id="nepali_name"
+                  placeholder="नेपाली नाम"
+                  value={formData.nepali_name || ''}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, nepali_name: e.target.value }))
+                  }
+                  disabled={!!selectedSubscriberId}
+                  className="pl-10 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+              <p className="text-xs text-gray-500">Name in Devanagari script</p>
+            </div>
+
             {/* Email */}
             <div className="space-y-2">
               <Label htmlFor="email" className="text-gray-700">
@@ -422,6 +632,23 @@ export function SubscriberForm({ subscriber, mode }: SubscriberFormProps) {
                   className="pl-10 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
+            </div>
+
+            {/* Date of Birth (BS) */}
+            <div className="space-y-2">
+              <Label className="text-gray-700 flex items-center gap-2">
+                <Cake className="h-4 w-4 text-gray-400" />
+                Date of Birth (BS)
+              </Label>
+              <NepaliDobPicker
+                value={formData.date_of_birth_bs || null}
+                onChange={(val) =>
+                  setFormData((prev) => ({ ...prev, date_of_birth_bs: val }))
+                }
+                placeholder="Select birth date (BS)"
+                className="w-full"
+              />
+              <p className="text-xs text-gray-500">Date in Bikram Sambat (B.S.)</p>
             </div>
 
             {/* Referred By */}

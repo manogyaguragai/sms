@@ -13,7 +13,6 @@ import type { UserRole } from '@/lib/types';
 import {
   LayoutDashboard,
   Users,
-  UserPlus,
   Settings,
   LogOut,
   CreditCard,
@@ -21,9 +20,9 @@ import {
   X,
   Activity,
   Shield,
-  DollarSign,
   TrendingDown,
   PhoneCall,
+  CalendarDays,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 
@@ -37,13 +36,12 @@ interface NavItem {
 
 const allNavigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Churn Timeline', href: '/churn-timeline', icon: TrendingDown },
-  // { name: 'Financials', href: '/financials', icon: DollarSign },
   { name: 'Subscribers', href: '/subscribers', icon: Users },
   { name: 'Followups', href: '/followups', icon: PhoneCall },
-  { name: 'Add New', href: '/subscribers/new', icon: UserPlus, requiredRoles: ['super_admin', 'admin', 'staff'] },
-  { name: 'Activity Logs', href: '/activity-logs', icon: Activity, requiredRoles: ['super_admin', 'admin'] },
+  { name: 'Events', href: '/events', icon: CalendarDays },
+  { name: 'Churn Timeline', href: '/churn-timeline', icon: TrendingDown },
   { name: 'Users', href: '/users', icon: Shield, requiredRoles: ['super_admin', 'admin'] },
+  { name: 'Activity Logs', href: '/activity-logs', icon: Activity, requiredRoles: ['super_admin', 'admin'] },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 

@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { hasPermission } from '@/lib/rbac';
+import { logFollowupCreated, logFollowupUpdated, logFollowupDeleted } from '@/lib/activity-logger';
 import type { FollowupWithDetails } from '@/lib/types';
 
 export type FollowupSortColumn = 'created_at' | 'followup_date';
@@ -256,7 +257,7 @@ export async function createFollowup(data: {
   const adminSupabase = createAdminClient();
 
   try {
-    const { error } = await adminSupabase.from('followups').insert({
+    const { data: inserted, error } = await adminSupabase.from('followups').insert({
       subscriber_id: data.subscriber_id,
       made_by: data.made_by,
       phone_number: data.phone_number || null,
@@ -264,9 +265,31 @@ export async function createFollowup(data: {
       followup_time: data.followup_time || null,
       notes: data.notes || null,
       created_by: user.id,
-    });
+    }).select('id').single();
 
     if (error) throw error;
+
+    // Get subscriber name and made_by names for logging
+    const { data: subData } = await adminSupabase
+      .from('subscribers')
+      .select('full_name')
+      .eq('id', data.subscriber_id)
+      .single();
+
+    const { data: profilesData } = await adminSupabase
+      .from('profiles')
+      .select('full_name')
+      .in('id', data.made_by);
+
+    const madeByNames = (profilesData || []).map(p => p.full_name || 'Unknown');
+
+    await logFollowupCreated(inserted?.id || '', subData?.full_name || 'Unknown', {
+      followup_date: data.followup_date,
+      made_by_names: madeByNames,
+      phone_number: data.phone_number,
+      followup_time: data.followup_time,
+      notes: data.notes,
+    });
 
     revalidatePath('/followups');
     return { success: true, message: 'Followup recorded successfully' };
@@ -300,6 +323,13 @@ export async function updateFollowup(
   const adminSupabase = createAdminClient();
 
   try {
+    // Fetch old followup data for diffing
+    const { data: oldFollowup } = await adminSupabase
+      .from('followups')
+      .select('*, subscribers!inner(full_name)')
+      .eq('id', followupId)
+      .single();
+
     const updates: Record<string, unknown> = {};
     if (data.made_by !== undefined) updates.made_by = data.made_by;
     if (data.phone_number !== undefined) updates.phone_number = data.phone_number || null;
@@ -313,6 +343,47 @@ export async function updateFollowup(
       .eq('id', followupId);
 
     if (error) throw error;
+
+    // Build changes diff for logging
+    if (oldFollowup) {
+      const changes: Record<string, { from: unknown; to: unknown }> = {};
+      const fieldLabels: Record<string, string> = {
+        phone_number: 'Phone Number',
+        followup_date: 'Date',
+        followup_time: 'Time',
+        notes: 'Notes',
+      };
+
+      for (const [key, label] of Object.entries(fieldLabels)) {
+        if (data[key as keyof typeof data] !== undefined && oldFollowup[key] !== updates[key]) {
+          changes[label] = { from: oldFollowup[key], to: updates[key] };
+        }
+      }
+
+      // Handle made_by separately (compare arrays)
+      if (data.made_by !== undefined) {
+        const oldMadeBy = (oldFollowup.made_by || []).sort().join(',');
+        const newMadeBy = (data.made_by || []).sort().join(',');
+        if (oldMadeBy !== newMadeBy) {
+          // Resolve names
+          const allIds = [...new Set([...(oldFollowup.made_by || []), ...(data.made_by || [])])];
+          const { data: profilesData } = await adminSupabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', allIds);
+          const nameMap = new Map((profilesData || []).map(p => [p.id, p.full_name || 'Unknown']));
+          changes['Made By'] = {
+            from: (oldFollowup.made_by || []).map((id: string) => nameMap.get(id) || 'Unknown'),
+            to: (data.made_by || []).map((id: string) => nameMap.get(id) || 'Unknown'),
+          };
+        }
+      }
+
+      if (Object.keys(changes).length > 0) {
+        const subscriberName = (oldFollowup as any).subscribers?.full_name || 'Unknown';
+        await logFollowupUpdated(followupId, subscriberName, changes);
+      }
+    }
 
     revalidatePath('/followups');
     return { success: true, message: 'Followup updated successfully' };
@@ -339,12 +410,34 @@ export async function deleteFollowup(
   const adminSupabase = createAdminClient();
 
   try {
+    // Fetch followup data before deletion for logging
+    const { data: followupData } = await adminSupabase
+      .from('followups')
+      .select('*, subscribers!inner(full_name)')
+      .eq('id', followupId)
+      .single();
+
     const { error } = await adminSupabase
       .from('followups')
       .delete()
       .eq('id', followupId);
 
     if (error) throw error;
+
+    // Log the deletion
+    if (followupData) {
+      const { data: profilesData } = await adminSupabase
+        .from('profiles')
+        .select('full_name')
+        .in('id', followupData.made_by || []);
+
+      const madeByNames = (profilesData || []).map((p: any) => p.full_name || 'Unknown');
+
+      await logFollowupDeleted(followupId, (followupData as any).subscribers?.full_name || 'Unknown', {
+        followup_date: followupData.followup_date,
+        made_by_names: madeByNames,
+      });
+    }
 
     revalidatePath('/followups');
     return { success: true, message: 'Followup deleted successfully' };

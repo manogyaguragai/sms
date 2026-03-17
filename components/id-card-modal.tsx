@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import {
   Dialog,
@@ -9,9 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Printer, RotateCcw, Pencil, Loader2, Check } from 'lucide-react';
-import { toast } from 'sonner';
-import { updateNepaliFields } from '@/app/actions/subscriber';
+import { Printer, RotateCcw } from 'lucide-react';
 import type { Subscriber } from '@/lib/types';
 
 /** Convert English digits (0-9) to Nepali/Devanagari digits (०-९) */
@@ -113,11 +111,9 @@ interface IdCardModalProps {
 
 export function IdCardModal({ subscriber, open, onClose }: IdCardModalProps) {
   const [showBack, setShowBack] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Editable Nepali fields — read from DB, fall back to client-side transliteration
+  // Read-only Nepali fields — from DB, falling back to client-side transliteration
   const [nepaliName, setNepaliName] = useState(() =>
     subscriber.nepali_name || transliterateToNepali(subscriber.full_name)
   );
@@ -130,28 +126,6 @@ export function IdCardModal({ subscriber, open, onClose }: IdCardModalProps) {
     setNepaliName(subscriber.nepali_name || transliterateToNepali(subscriber.full_name));
     setNepaliPhone(subscriber.nepali_phone || (subscriber.phone ? toNepaliDigits(subscriber.phone) : ''));
   }, [subscriber.nepali_name, subscriber.nepali_phone, subscriber.full_name, subscriber.phone]);
-
-  // Save edits to DB when done editing
-  const handleDoneEditing = useCallback(async () => {
-    setSaving(true);
-    try {
-      const result = await updateNepaliFields(
-        subscriber.id,
-        nepaliName,
-        nepaliPhone || null
-      );
-      if (result.success) {
-        toast.success('Nepali details saved');
-      } else {
-        toast.error(result.message);
-      }
-    } catch {
-      toast.error('Failed to save Nepali details');
-    } finally {
-      setSaving(false);
-      setEditing(false);
-    }
-  }, [subscriber.id, nepaliName, nepaliPhone]);
 
   const profileUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/subscribers/${subscriber.id}`
@@ -234,35 +208,6 @@ export function IdCardModal({ subscriber, open, onClose }: IdCardModalProps) {
         </DialogHeader>
 
         <div className="px-6 pb-5 space-y-4">
-          {/* Editable Nepali fields */}
-          {editing && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
-              <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">Edit Nepali Details</p>
-              <div className="space-y-2">
-                <div>
-                  <label className="text-xs font-medium text-slate-500 mb-1 block">नाम (Nepali Name)</label>
-                  <input
-                    type="text"
-                    value={nepaliName}
-                    onChange={(e) => setNepaliName(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
-                  />
-                </div>
-                {subscriber.phone && (
-                  <div>
-                    <label className="text-xs font-medium text-slate-500 mb-1 block">फोन (Nepali Phone)</label>
-                    <input
-                      type="text"
-                      value={nepaliPhone}
-                      onChange={(e) => setNepaliPhone(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* Card display */}
           <div className="flex justify-center">
             <div
@@ -306,21 +251,6 @@ export function IdCardModal({ subscriber, open, onClose }: IdCardModalProps) {
 
           {/* Actions */}
           <div className="flex items-center justify-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() => editing ? handleDoneEditing() : setEditing(true)}
-              disabled={saving}
-              className={`h-9 px-4 text-sm border-slate-200 ${editing ? 'text-amber-600 border-amber-300 bg-amber-50' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              {saving ? (
-                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-              ) : editing ? (
-                <Check className="w-3.5 h-3.5 mr-1.5" />
-              ) : (
-                    <Pencil className="w-3.5 h-3.5 mr-1.5" />
-              )}
-              {saving ? 'Saving...' : editing ? 'Save' : 'Edit'}
-            </Button>
             <Button
               variant="outline"
               onClick={() => setShowBack(!showBack)}
@@ -370,12 +300,37 @@ function TempleWatermark() {
   );
 }
 
+/* ─── Profile Photo or Nothing ─── */
+function ProfilePhoto({ subscriber, size, forPrint }: { subscriber: Subscriber; size: number; forPrint?: boolean }) {
+  const borderWidth = Math.max(2, Math.round(size * 0.04));
+
+  if (subscriber.profile_picture_url) {
+    return (
+      <img
+        src={subscriber.profile_picture_url}
+        alt={subscriber.full_name}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: '50%',
+          objectFit: 'cover',
+          border: `${borderWidth}px solid #e2e8f0`,
+          flexShrink: 0,
+        }}
+      />
+    );
+  }
+
+  return null;
+}
+
 /* ─── Front (English) ─── */
 function IdCardFront({ subscriber, profileUrl, forPrint }: {
   subscriber: Subscriber;
   profileUrl: string;
   forPrint?: boolean;
 }) {
+  const photoSize = forPrint ? 60 : 64;
   return (
     <div
       style={{
@@ -445,14 +400,17 @@ function IdCardFront({ subscriber, profileUrl, forPrint }: {
         </div>
       </div>
 
-      {/* Details + QR */}
+      {/* Details + Photo + QR */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flex: 1, marginTop: '10px', position: 'relative' as const, zIndex: 1 }}>
-        {/* Details */}
-        <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '4px', minWidth: 0, flex: 1 }}>
-          <DetailRow label="NAME" value={subscriber.full_name} forPrint={forPrint} />
-          <DetailRow label="MASTER ID" value={subscriber.master_id} forPrint={forPrint} highlight />
-          {subscriber.phone && <DetailRow label="PHONE" value={subscriber.phone} forPrint={forPrint} />}
-          {subscriber.email && <DetailRow label="EMAIL" value={subscriber.email} forPrint={forPrint} />}
+        {/* Photo + Details */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+          <ProfilePhoto subscriber={subscriber} size={photoSize} forPrint={forPrint} />
+          <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '4px', minWidth: 0, flex: 1 }}>
+            <DetailRow label="NAME" value={subscriber.full_name} forPrint={forPrint} />
+            <DetailRow label="MASTER ID" value={subscriber.master_id} forPrint={forPrint} highlight />
+            {subscriber.phone && <DetailRow label="PHONE" value={subscriber.phone} forPrint={forPrint} />}
+            {subscriber.email && <DetailRow label="EMAIL" value={subscriber.email} forPrint={forPrint} />}
+          </div>
         </div>
 
         {/* QR */}
@@ -495,6 +453,7 @@ function IdCardBack({ subscriber, profileUrl, forPrint, nepaliName, nepaliPhone 
   nepaliName: string;
   nepaliPhone: string;
 }) {
+  const photoSize = forPrint ? 60 : 64;
   return (
     <div
       style={{
@@ -561,14 +520,17 @@ function IdCardBack({ subscriber, profileUrl, forPrint, nepaliName, nepaliPhone 
         </div>
       </div>
 
-      {/* Details + QR */}
+      {/* Details + Photo + QR */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flex: 1, marginTop: '10px', position: 'relative' as const, zIndex: 1 }}>
-        {/* Details in Nepali labels, editable values */}
-        <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '4px', minWidth: 0, flex: 1 }}>
-          <DetailRow label="नाम" value={nepaliName} forPrint={forPrint} nepali />
-          <DetailRow label="मास्टर आईडी" value={subscriber.master_id} forPrint={forPrint} highlight nepali />
-          {subscriber.phone && <DetailRow label="फोन" value={nepaliPhone} forPrint={forPrint} nepali />}
-          {subscriber.email && <DetailRow label="इमेल" value={subscriber.email} forPrint={forPrint} nepali />}
+        {/* Photo + Details in Nepali */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+          <ProfilePhoto subscriber={subscriber} size={photoSize} forPrint={forPrint} />
+          <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '4px', minWidth: 0, flex: 1 }}>
+            <DetailRow label="नाम" value={nepaliName} forPrint={forPrint} nepali />
+            <DetailRow label="मास्टर आईडी" value={subscriber.master_id} forPrint={forPrint} highlight nepali />
+            {subscriber.phone && <DetailRow label="फोन" value={nepaliPhone} forPrint={forPrint} nepali />}
+            {subscriber.email && <DetailRow label="इमेल" value={subscriber.email} forPrint={forPrint} nepali />}
+          </div>
         </div>
 
         {/* QR */}

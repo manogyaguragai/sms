@@ -78,3 +78,81 @@ export async function uploadPaymentProof(
     return { error: 'An unexpected error occurred during upload' };
   }
 }
+
+/**
+ * Upload a subscriber profile picture to the 'profile_pictures' storage bucket.
+ * Uses the admin client to bypass storage RLS.
+ * Accepts jpg, jpeg, png only. Max size 20MB.
+ *
+ * @param formData - FormData containing 'file' and 'subscriberId'
+ * @returns { url: string } on success, or { error: string } on failure
+ */
+export async function uploadProfilePicture(
+  formData: FormData
+): Promise<{ url?: string; error?: string }> {
+  try {
+    // Verify the user is authenticated
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { error: 'Not authenticated' };
+    }
+
+    const file = formData.get('file') as File | null;
+    const subscriberId = formData.get('subscriberId') as string | null;
+
+    if (!file) {
+      return { error: 'No file provided' };
+    }
+
+    if (!subscriberId) {
+      return { error: 'No subscriber ID provided' };
+    }
+
+    // Validate file type: only jpg, jpeg, png
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    if (!allowedTypes.includes(file.type)) {
+      return { error: 'Only JPG, JPEG, and PNG files are allowed.' };
+    }
+
+    // Validate file size (max 20MB)
+    if (file.size > 20 * 1024 * 1024) {
+      return { error: 'File size must be less than 20MB' };
+    }
+
+    // Determine extension
+    const ext = file.type === 'image/png' ? 'png' : 'jpg';
+    const fileName = `${subscriberId}/${Date.now()}.${ext}`;
+
+    // Convert File to buffer for upload
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Upload using admin client
+    const adminSupabase = createAdminClient();
+    const { error: uploadError } = await adminSupabase.storage
+      .from('profile_pictures')
+      .upload(fileName, buffer, {
+        contentType: file.type,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error('Profile picture upload error:', uploadError);
+      return { error: `Upload failed: ${uploadError.message}` };
+    }
+
+    // Get public URL
+    const { data: urlData } = adminSupabase.storage
+      .from('profile_pictures')
+      .getPublicUrl(fileName);
+
+    return { url: urlData.publicUrl };
+  } catch (error) {
+    console.error('Profile picture upload error:', error);
+    return { error: 'An unexpected error occurred during upload' };
+  }
+}

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { differenceInDays, startOfDay } from 'date-fns';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar, ChevronLeft, ChevronRight, Phone } from 'lucide-react';
@@ -48,6 +48,9 @@ export function ExpiringSubscribersList({ subscribers }: Props) {
           >
             <div className="flex items-center gap-3">
               <Avatar className="w-9 h-9 bg-amber-500">
+                {sub.profile_picture_url && (
+                  <AvatarImage src={sub.profile_picture_url} alt={sub.full_name} className="object-cover" />
+                )}
                 <AvatarFallback className="bg-transparent text-white text-sm">
                   {sub.full_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                 </AvatarFallback>

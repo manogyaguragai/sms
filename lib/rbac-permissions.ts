@@ -23,6 +23,12 @@ export const PERMISSIONS = {
   UPDATE_FOLLOWUP: ['super_admin', 'admin'] as UserRole[],
   DELETE_FOLLOWUP: ['super_admin', 'admin'] as UserRole[],
 
+  // Event operations
+  VIEW_EVENTS: ['super_admin', 'admin', 'staff', 'view_only'] as UserRole[],
+  CREATE_EVENT: ['super_admin', 'admin', 'staff'] as UserRole[],
+  UPDATE_EVENT: ['super_admin', 'admin'] as UserRole[],
+  DELETE_EVENT: ['super_admin', 'admin'] as UserRole[],
+
   // User management
   VIEW_USERS: ['super_admin', 'admin'] as UserRole[],
   CREATE_USER: ['super_admin', 'admin'] as UserRole[],
