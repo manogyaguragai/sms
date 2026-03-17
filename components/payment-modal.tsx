@@ -710,10 +710,15 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
             </Label>
             <Input
               id="receiptNumber"
-              placeholder="e.g., REC-001234"
+              placeholder="e.g., 12345"
               value={receiptNumber}
                 onChange={(e) => {
-                  setReceiptNumber(e.target.value);
+                  const val = e.target.value;
+                  if (val.length > 5) {
+                    setReceiptError('Receipt number cannot be more than 5 digits.');
+                    return; // block the update
+                  }
+                  setReceiptNumber(val);
                   setProofError(null);
                   setReceiptError(null);
                 }}
