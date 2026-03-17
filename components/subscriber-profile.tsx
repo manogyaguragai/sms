@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRole } from '@/lib/hooks/use-role';
@@ -139,6 +139,7 @@ export function SubscriberProfile({ subscriber, payments, canCreateFollowup }: S
   const canDelete = hasPermission('DELETE_SUBSCRIBER');
   const canCreatePayment = hasPermission('CREATE_PAYMENT');
   const canEdit = hasPermission('UPDATE_SUBSCRIBER');
+  const [mounted, setMounted] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -162,6 +163,10 @@ export function SubscriberProfile({ subscriber, payments, canCreateFollowup }: S
   const endDates: Record<string, string> = subscriber.subscription_end_dates || {};
 
   const lastPaymentDate = payments.length > 0 ? new Date(payments[0].payment_date) : null;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -564,129 +569,135 @@ export function SubscriberProfile({ subscriber, payments, canCreateFollowup }: S
               Payment History
             </h2>
 
-            <Tabs defaultValue={frequencies[0] || '_other'} className="w-full">
-              <TabsList className="bg-slate-100/80 p-1 rounded-xl h-auto w-full justify-start overflow-x-auto flex-nowrap border border-slate-200/50">
-                {frequencies.map(f => (
-                  <TabsTrigger
-                    key={f}
-                    value={f}
-                    className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-400 font-medium whitespace-nowrap px-4 py-2 text-sm transition-all"
-                  >
-                    {getFreqLabel(f)}
-                  </TabsTrigger>
-                ))}
-                {hasUntagged && (
-                  <TabsTrigger
-                    value="_other"
-                    className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-400 font-medium whitespace-nowrap px-4 py-2 text-sm transition-all"
-                  >
-                    Other
-                  </TabsTrigger>
-                )}
-              </TabsList>
+            {!mounted ? (
+              <div className="h-[200px] flex items-center justify-center bg-slate-50/50 rounded-2xl border border-slate-100 animate-pulse">
+                <Loader2 className="w-6 h-6 text-slate-300 animate-spin" />
+              </div>
+            ) : (
+              <Tabs defaultValue={frequencies[0] || '_other'} className="w-full">
+                <TabsList className="bg-slate-100/80 p-1 rounded-xl h-auto w-full justify-start overflow-x-auto flex-nowrap border border-slate-200/50">
+                  {frequencies.map(f => (
+                    <TabsTrigger
+                      key={f}
+                      value={f}
+                      className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-400 font-medium whitespace-nowrap px-4 py-2 text-sm transition-all"
+                    >
+                      {getFreqLabel(f)}
+                    </TabsTrigger>
+                  ))}
+                  {hasUntagged && (
+                    <TabsTrigger
+                      value="_other"
+                      className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-400 font-medium whitespace-nowrap px-4 py-2 text-sm transition-all"
+                    >
+                      Other
+                    </TabsTrigger>
+                  )}
+                </TabsList>
 
-              {[...frequencies, ...(hasUntagged ? ['_other'] : [])].map(freqKey => {
-                const colPayments = freqKey === '_other' ? untaggedPayments : payments.filter(p => p.payment_for === freqKey);
-                const colPage = currentPages[freqKey] || 1;
-                const colTotalPages = Math.ceil(colPayments.length / recordsPerPage);
-                const colStart = (colPage - 1) * recordsPerPage;
-                const colEnd = colStart + recordsPerPage;
-                const colPaginated = colPayments.slice(colStart, colEnd);
+                {[...frequencies, ...(hasUntagged ? ['_other'] : [])].map(freqKey => {
+                  const colPayments = freqKey === '_other' ? untaggedPayments : payments.filter(p => p.payment_for === freqKey);
+                  const colPage = currentPages[freqKey] || 1;
+                  const colTotalPages = Math.ceil(colPayments.length / recordsPerPage);
+                  const colStart = (colPage - 1) * recordsPerPage;
+                  const colEnd = colStart + recordsPerPage;
+                  const colPaginated = colPayments.slice(colStart, colEnd);
 
-                return (
-                  <TabsContent key={freqKey} value={freqKey} className="mt-3 focus-visible:outline-none">
-                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-                      {colPayments.length === 0 ? (
-                        <div className="text-center py-16 px-4">
-                          <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center mx-auto mb-3">
-                            <Receipt className="w-6 h-6 text-slate-200" />
+                  return (
+                    <TabsContent key={freqKey} value={freqKey} className="mt-3 focus-visible:outline-none">
+                      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                        {colPayments.length === 0 ? (
+                          <div className="text-center py-16 px-4">
+                            <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center mx-auto mb-3">
+                              <Receipt className="w-6 h-6 text-slate-200" />
+                            </div>
+                            <p className="text-sm font-medium text-slate-300">No payment records</p>
                           </div>
-                          <p className="text-sm font-medium text-slate-300">No payment records</p>
-                        </div>
-                      ) : (
-                          <div>
-                            {/* Rows */}
-                            <div className="divide-y divide-slate-100/80">
-                              {colPaginated.map((payment, i) => (
-                                <div
-                                  key={payment.id}
-                                  onClick={() => {
-                                    setSelectedPayment(payment);
-                                    setShowPaymentDetailModal(true);
-                                  }}
-                                  className="flex items-center justify-between px-5 py-4 hover:bg-blue-50/30 transition-all duration-200 cursor-pointer group"
-                                >
-                                  <div className="flex items-center gap-3.5 min-w-0">
-                                    <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0 group-hover:bg-blue-100 transition-colors">
-                                      <DollarSign className="w-4 h-4" />
-                                    </div>
-                                    <div className="min-w-0">
-                                      <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="text-sm font-bold text-slate-900">
-                                          Rs. {Number(payment.amount_paid).toLocaleString('en-NP')}
-                                        </span>
-                                        {payment.receipt_number && (
-                                          <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-md">
-                                            #{payment.receipt_number}
+                        ) : (
+                            <div>
+                              {/* Rows */}
+                              <div className="divide-y divide-slate-100/80">
+                                {colPaginated.map((payment, i) => (
+                                  <div
+                                    key={payment.id}
+                                    onClick={() => {
+                                      setSelectedPayment(payment);
+                                      setShowPaymentDetailModal(true);
+                                    }}
+                                    className="flex items-center justify-between px-5 py-4 hover:bg-blue-50/30 transition-all duration-200 cursor-pointer group"
+                                  >
+                                    <div className="flex items-center gap-3.5 min-w-0">
+                                      <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0 group-hover:bg-blue-100 transition-colors">
+                                        <DollarSign className="w-4 h-4" />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="text-sm font-bold text-slate-900">
+                                            Rs. {Number(payment.amount_paid).toLocaleString('en-NP')}
                                           </span>
-                                        )}
-                                        {payment.proof_url && (
-                                          <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
-                                            Proof
-                                          </span>
+                                          {payment.receipt_number && (
+                                            <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-md">
+                                              #{payment.receipt_number}
+                                            </span>
+                                          )}
+                                          {payment.proof_url && (
+                                            <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+                                              Proof
+                                            </span>
+                                          )}
+                                        </div>
+                                        <p className="text-xs text-slate-400 mt-0.5">
+                                          {formatNepaliDateTime(payment.payment_date)}
+                                        </p>
+                                        {payment.notes && payment.notes.includes('Payment for:') && (
+                                          <p className="text-[11px] text-blue-500/70 mt-0.5 truncate max-w-[320px]">
+                                            {payment.notes.match(/Payment for:\s*([^|]+)/)?.[1]?.trim() || ''}
+                                          </p>
                                         )}
                                       </div>
-                                      <p className="text-xs text-slate-400 mt-0.5">
-                                        {formatNepaliDateTime(payment.payment_date)}
-                                      </p>
-                                      {payment.notes && payment.notes.includes('Payment for:') && (
-                                        <p className="text-[11px] text-blue-500/70 mt-0.5 truncate max-w-[320px]">
-                                          {payment.notes.match(/Payment for:\s*([^|]+)/)?.[1]?.trim() || ''}
-                                        </p>
-                                      )}
                                     </div>
+                                    <ChevronRight className="w-4 h-4 text-slate-200 group-hover:text-slate-400 transition-colors shrink-0" />
                                   </div>
-                                  <ChevronRight className="w-4 h-4 text-slate-200 group-hover:text-slate-400 transition-colors shrink-0" />
-                                </div>
-                              ))}
+                                ))}
+                              </div>
+                            </div>
+                        )}
+
+                        {/* Pagination */}
+                        {colTotalPages > 1 && (
+                          <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100/80 bg-slate-50/30">
+                            <p className="text-xs text-slate-400 tabular-nums">
+                              {colStart + 1}–{Math.min(colEnd, colPayments.length)} of {colPayments.length}
+                            </p>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setCurrentPages(prev => ({ ...prev, [freqKey]: Math.max(1, colPage - 1) }))}
+                                disabled={colPage === 1}
+                                className="h-7 w-7 p-0 text-slate-400 hover:text-slate-600"
+                              >
+                                <ChevronLeft className="w-3.5 h-3.5" />
+                              </Button>
+                              <span className="text-xs text-slate-400 px-1.5 tabular-nums font-medium">{colPage}/{colTotalPages}</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setCurrentPages(prev => ({ ...prev, [freqKey]: Math.min(colTotalPages, colPage + 1) }))}
+                                disabled={colPage === colTotalPages}
+                                className="h-7 w-7 p-0 text-slate-400 hover:text-slate-600"
+                              >
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              </Button>
                             </div>
                           </div>
-                      )}
-
-                      {/* Pagination */}
-                      {colTotalPages > 1 && (
-                        <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100/80 bg-slate-50/30">
-                          <p className="text-xs text-slate-400 tabular-nums">
-                            {colStart + 1}–{Math.min(colEnd, colPayments.length)} of {colPayments.length}
-                          </p>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setCurrentPages(prev => ({ ...prev, [freqKey]: Math.max(1, colPage - 1) }))}
-                              disabled={colPage === 1}
-                              className="h-7 w-7 p-0 text-slate-400 hover:text-slate-600"
-                            >
-                              <ChevronLeft className="w-3.5 h-3.5" />
-                            </Button>
-                            <span className="text-xs text-slate-400 px-1.5 tabular-nums font-medium">{colPage}/{colTotalPages}</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setCurrentPages(prev => ({ ...prev, [freqKey]: Math.min(colTotalPages, colPage + 1) }))}
-                              disabled={colPage === colTotalPages}
-                              className="h-7 w-7 p-0 text-slate-400 hover:text-slate-600"
-                            >
-                              <ChevronRight className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </TabsContent>
-                );
-              })}
-            </Tabs>
+                        )}
+                      </div>
+                    </TabsContent>
+                  );
+                })}
+              </Tabs>
+            )}
           </div>
         </div>
       </div>

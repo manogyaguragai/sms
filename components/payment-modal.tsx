@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -83,8 +83,8 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
   const [pendingProofUrl, setPendingProofUrl] = useState<string | null>(null);
 
   // Month/Year picker state (using Nepali year - Bikram Sambat)
-  // Current Nepali date: 2082 Magh 21
-  const [pickerYear, setPickerYear] = useState(2082);
+  const currentNepaliYear = useMemo(() => new NepaliDate(new Date()).getYear(), []);
+  const [pickerYear, setPickerYear] = useState(currentNepaliYear);
   const [selectedMonths, setSelectedMonths] = useState<MonthSelection[]>([]);
 
   // Reset all form state when modal opens to ensure fresh start
@@ -101,7 +101,7 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
       setPeriodError(null);
       setReceiptError(null);
       setSelectedMonths([]);
-      setPickerYear(2082);
+      setPickerYear(currentNepaliYear);
       setShowConflictDialog(false);
       setConflictingPayments([]);
       setPendingProofUrl(null);
@@ -555,7 +555,7 @@ export function PaymentModal({ subscriber, open, onClose }: PaymentModalProps) {
       setFile(null);
       setPreview(null);
       setSelectedMonths([]);
-      setPickerYear(2082);
+      setPickerYear(currentNepaliYear);
       setReceiptNumber('');
       setPaymentMode('');
       setPaymentDate(new Date());
