@@ -15,8 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, Loader2 } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Plus, Loader2, List } from 'lucide-react';
 import NepaliDate from 'nepali-date-converter';
+import { EventsListView } from '@/components/events-list-view';
 import type { CalendarEvent, EventWithDetails } from '@/lib/types';
 
 const NEPALI_MONTHS = [
@@ -57,6 +58,7 @@ export function EventsClient({
   const [dayExpandDate, setDayExpandDate] = useState<string>('');
   const [dayExpandEvents, setDayExpandEvents] = useState<CalendarEvent[]>([]);
   const [showDayModal, setShowDayModal] = useState(false);
+  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
 
   // Fetch events when month/year changes
   const fetchEvents = useCallback(async () => {
@@ -171,108 +173,148 @@ export function EventsClient({
           </p>
         </div>
         {canCreateEvent && (
-          <Button
-            onClick={() => { setEditEvent(null); setShowEventModal(true); }}
-            className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-600/20"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Record New Event
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+              <button
+                onClick={() => setViewMode('calendar')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'calendar'
+                    ? 'bg-white text-blue-700 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <CalendarDays className="w-4 h-4" />
+                <span className="hidden sm:inline">Calendar</span>
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'list'
+                    ? 'bg-white text-blue-700 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <List className="w-4 h-4" />
+                <span className="hidden sm:inline">List</span>
+              </button>
+            </div>
+
+            <Button
+              onClick={() => { setEditEvent(null); setShowEventModal(true); }}
+              className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-600/20"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Record New Event
+            </Button>
+          </div>
         )}
       </div>
 
-      {/* Month/Year Navigation */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={goToPreviousMonth}
-            className="border-gray-200 text-gray-600 hover:bg-gray-100 h-9 w-9 p-0"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
+      {/* View Content */}
+      {viewMode === 'calendar' ? (
+        <>
+          {/* Month/Year Navigation */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={goToPreviousMonth}
+                className="border-gray-200 text-gray-600 hover:bg-gray-100 h-9 w-9 p-0"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
 
-          <div className="flex items-center gap-2">
-            <Select value={String(viewMonth)} onValueChange={(v) => setViewMonth(Number(v))}>
-              <SelectTrigger className="bg-white border-gray-200 h-9 w-[130px] text-sm font-medium">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-white border-gray-200">
-                {NEPALI_MONTHS.map((name, i) => (
-                  <SelectItem key={i} value={String(i)}>{name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <div className="flex items-center gap-2">
+                <Select value={String(viewMonth)} onValueChange={(v) => setViewMonth(Number(v))}>
+                  <SelectTrigger className="bg-white border-gray-200 h-9 w-[130px] text-sm font-medium">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-gray-200">
+                    {NEPALI_MONTHS.map((name, i) => (
+                      <SelectItem key={i} value={String(i)}>{name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-            <Select value={String(viewYear)} onValueChange={(v) => setViewYear(Number(v))}>
-              <SelectTrigger className="bg-white border-gray-200 h-9 w-[90px] text-sm font-medium">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-white border-gray-200 max-h-[240px]">
-                {yearOptions.map((y) => (
-                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <Select value={String(viewYear)} onValueChange={(v) => setViewYear(Number(v))}>
+                  <SelectTrigger className="bg-white border-gray-200 h-9 w-[90px] text-sm font-medium">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-gray-200 max-h-[240px]">
+                    {yearOptions.map((y) => (
+                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={goToNextMonth}
+                className="border-gray-200 text-gray-600 hover:bg-gray-100 h-9 w-9 p-0"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={goToToday}
+                className="border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-600 h-9 text-sm"
+              >
+                Today
+              </Button>
+
+              {loading && (
+                <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+              )}
+
+              {/* Legend */}
+              <div className="hidden sm:flex items-center gap-3 ml-2 text-[11px] text-slate-500">
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-blue-100 border border-blue-200" />
+                  Event
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-pink-100 border border-pink-200" />
+                  Birthday
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-purple-100 border border-purple-200" />
+                  Recurring
+                </span>
+              </div>
+            </div>
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={goToNextMonth}
-            className="border-gray-200 text-gray-600 hover:bg-gray-100 h-9 w-9 p-0"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+          {/* Calendar Grid */}
+          <NepaliCalendar
+            viewYear={viewYear}
+            viewMonth={viewMonth}
+            events={events}
+            onEventClick={handleEventClick}
+            onDayExpand={handleDayExpand}
+          />
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={goToToday}
-            className="border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-600 h-9 text-sm"
-          >
-            Today
-          </Button>
-
-          {loading && (
-            <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-          )}
-
-          {/* Legend */}
-          <div className="hidden sm:flex items-center gap-3 ml-2 text-[11px] text-slate-500">
-            <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-sm bg-blue-100 border border-blue-200" />
-              Event
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-sm bg-pink-100 border border-pink-200" />
-              Birthday
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-sm bg-purple-100 border border-purple-200" />
-              Recurring
-            </span>
+          {/* Event stats */}
+          <div className="flex items-center gap-4 text-xs text-slate-400">
+            <span>{events.filter(e => !e.is_birthday).length} event{events.filter(e => !e.is_birthday).length !== 1 ? 's' : ''}</span>
+            <span>{events.filter(e => e.is_birthday).length} birthday{events.filter(e => e.is_birthday).length !== 1 ? 's' : ''}</span>
           </div>
-        </div>
-      </div>
-
-      {/* Calendar Grid */}
-      <NepaliCalendar
-        viewYear={viewYear}
-        viewMonth={viewMonth}
-        events={events}
-        onEventClick={handleEventClick}
-        onDayExpand={handleDayExpand}
-      />
-
-      {/* Event stats */}
-      <div className="flex items-center gap-4 text-xs text-slate-400">
-        <span>{events.filter(e => !e.is_birthday).length} event{events.filter(e => !e.is_birthday).length !== 1 ? 's' : ''}</span>
-        <span>{events.filter(e => e.is_birthday).length} birthday{events.filter(e => e.is_birthday).length !== 1 ? 's' : ''}</span>
-      </div>
+        </>
+      ) : (
+        /* List View */
+        <EventsListView
+          canEditEvent={canEditEvent}
+          canDeleteEvent={canDeleteEvent}
+          onRefreshCalendar={fetchEvents}
+        />
+      )}
 
       {/* Modals */}
       <EventModal

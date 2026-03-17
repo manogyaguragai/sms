@@ -647,6 +647,7 @@ export function SubscriberForm({ subscriber, mode, hideHeader, onSuccess }: Subs
                 }
                 placeholder="Select birth date (BS)"
                 className="w-full"
+                minYear={2000}
               />
               <p className="text-xs text-gray-500">Date in Bikram Sambat (B.S.)</p>
             </div>
